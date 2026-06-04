@@ -1,0 +1,19 @@
+{
+  "name": "discordbot-tattletale",
+  "version": "1.0.0",
+  "description": "A Discord moderation bot that logs deleted/edited messages and alerts mods to flagged words in a dedicated channel.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  },
+  "license": "MIT"
+}
