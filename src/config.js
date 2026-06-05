@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -7,6 +7,16 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // config survives redeploys), otherwise the project root for local use.
 const DATA_DIR = process.env.DATA_DIR || join(__dirname, '..');
 const SETTINGS_PATH = join(DATA_DIR, 'settings.json');
+
+// Make sure the directory exists, so a DATA_DIR pointing at a not-yet-created
+// path (a common cause of silent "settings won't save" failures) doesn't make
+// every write throw ENOENT. (For persistence across redeploys, DATA_DIR still
+// needs to be a *mounted volume* — see DEPLOYMENT.md.)
+try {
+  mkdirSync(DATA_DIR, { recursive: true });
+} catch (err) {
+  console.error(`Could not create settings directory ${DATA_DIR}: ${err.message}`);
+}
 
 // All bot settings are stored per-guild in settings.json and managed entirely
 // through in-Discord slash commands. No code edits or restarts are required to
@@ -74,7 +84,19 @@ function persist() {
   } catch {
     // Fallback for filesystems/mounts where atomic rename isn't supported —
     // a direct write is better than losing the change entirely.
-    writeFileSync(SETTINGS_PATH, json);
+    try {
+      writeFileSync(SETTINGS_PATH, json);
+    } catch (err) {
+      // Surface the real reason (ENOENT/EACCES/EROFS...) so the cause of a
+      // failed save is obvious in the logs, then re-throw so the command
+      // visibly fails rather than silently losing data.
+      console.error(
+        `❌ Failed to save settings to ${SETTINGS_PATH}: ${err.message}. ` +
+        'Changes will be lost on restart. Check that DATA_DIR points at a ' +
+        'mounted, writable volume.',
+      );
+      throw err;
+    }
   }
 }
 
