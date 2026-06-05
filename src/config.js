@@ -51,12 +51,31 @@ function loadAll() {
 
 let settings = loadAll();
 
+// Surface where settings live and how many guilds loaded, so a "my words reset"
+// problem is diagnosable straight from the startup logs.
+const guildCount = Object.keys(settings).length;
+console.log(`Settings file: ${SETTINGS_PATH} (${guildCount} guild${guildCount === 1 ? '' : 's'} loaded)`);
+if (!process.env.DATA_DIR) {
+  console.warn(
+    '⚠️ DATA_DIR is not set, so settings.json lives in the project folder. ' +
+    'Many hosts (e.g. Railway) wipe that on every redeploy, which erases your ' +
+    'words/config. Set DATA_DIR to a mounted volume path (e.g. /data) to keep it.',
+  );
+}
+
 function persist() {
-  // Atomic write: serialize to a temp file then rename over the target, so a
-  // crash mid-write can never leave a half-written (corrupt) settings.json.
-  const tmp = `${SETTINGS_PATH}.tmp`;
-  writeFileSync(tmp, JSON.stringify(settings, null, 2));
-  renameSync(tmp, SETTINGS_PATH);
+  const json = JSON.stringify(settings, null, 2);
+  try {
+    // Atomic write: serialize to a temp file then rename over the target, so a
+    // crash mid-write can never leave a half-written (corrupt) settings.json.
+    const tmp = `${SETTINGS_PATH}.tmp`;
+    writeFileSync(tmp, json);
+    renameSync(tmp, SETTINGS_PATH);
+  } catch {
+    // Fallback for filesystems/mounts where atomic rename isn't supported —
+    // a direct write is better than losing the change entirely.
+    writeFileSync(SETTINGS_PATH, json);
+  }
 }
 
 // Returns a guild's settings, filling in any missing defaults.
