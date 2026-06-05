@@ -18,6 +18,7 @@ import {
   listWords,
   setAiEnabled,
   setAiThreshold,
+  storageInfo,
   addAiTrigger,
   removeAiTrigger,
   editAiTrigger,
@@ -389,6 +390,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const roles = s.allowedRoleIds.length
           ? s.allowedRoleIds.map((id) => `<@&${id}>`).join(', ')
           : '*anyone with Manage Server*';
+        const store = storageInfo();
+        const persistence = store.dataDirSet
+          ? `✅ saving to \`${store.path}\` (ensure a volume is mounted there so it survives redeploys)`
+          : `⚠️ **NOT persistent** — \`DATA_DIR\` is unset, so settings are stored at \`${store.path}\` and **reset on every redeploy/restart**. Set \`DATA_DIR\` to a mounted volume path.`;
         return reply(
           interaction,
           [
@@ -402,6 +407,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `AI trigger phrases: ${s.aiTriggers.length}`,
             `Flagged words: ${s.flaggedWords.length}`,
             `Command access: ${roles}`,
+            `Storage: ${persistence}`,
           ].join('\n'),
         );
       }

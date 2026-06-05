@@ -234,6 +234,17 @@ export function listAiTriggers(guildId) {
   return [...getGuild(guildId).aiTriggers];
 }
 
+// Where settings are stored and whether persistence is configured. Surfaced in
+// /tattletale settings so a "my words keep resetting" problem is visible in
+// Discord without reading host logs.
+export function storageInfo() {
+  return {
+    path: SETTINGS_PATH,
+    dataDirSet: Boolean(process.env.DATA_DIR),
+    fileExists: existsSync(SETTINGS_PATH),
+  };
+}
+
 // --- Role allowlist for command access ---
 
 export function addAllowedRole(guildId, roleId) {
