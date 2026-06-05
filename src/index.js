@@ -33,15 +33,45 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel],
 });
 
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Normalize text to defeat common filter-evasion so the keyword list catches
+// stretched/disguised spellings, not just the exact word:
+//   • lowercase
+//   • map common leetspeak to letters (p0op, p00p → poop; @→a, $→s, etc.)
+//   • strip separators/punctuation/emoji (so "p o o p", "p.o.o.p", "p-o-o-p"
+//     all collapse to "poop")
+//   • squash runs of 3+ repeated characters down to 2 (so "pooooop" → "poop",
+//     while a deliberate double letter like "poop" is preserved)
+// The message and each flagged word are normalized the same way, then matched
+// as a substring — so "poop" also catches "poops", "poopy", etc.
+function normalize(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[@4]/g, 'a')
+    .replace(/8/g, 'b')
+    .replace(/[(<{]/g, 'c')
+    .replace(/3/g, 'e')
+    .replace(/9/g, 'g')
+    .replace(/[1!|]/g, 'i')
+    .replace(/0/g, 'o')
+    .replace(/[5$]/g, 's')
+    .replace(/7/g, 't')
+    .replace(/2/g, 'z')
+    .replace(/[^a-z0-9]+/g, '')
+    .replace(/(.)\1{2,}/g, '$1$1');
 }
 
-// Build a case-insensitive, whole-word regex from a guild's current word list.
-// Rebuilt on demand so keyword changes take effect immediately, no restart.
-function buildRegex(words) {
+// Returns the configured flagged word the message matches (substring, after
+// normalization), or null. Recomputed per message so word-list edits take
+// effect immediately, no restart.
+function findFlaggedWord(content, words) {
   if (!words.length) return null;
-  return new RegExp(`\\b(${words.map(escapeRegex).join('|')})\\b`, 'i');
+  const haystack = normalize(content);
+  if (!haystack) return null;
+  for (const word of words) {
+    const needle = normalize(word);
+    if (needle && haystack.includes(needle)) return word;
+  }
+  return null;
 }
 
 function truncate(text, max = 1024) {
@@ -71,28 +101,29 @@ async function screenMessage(message, origin = 'posted') {
   const settings = getGuild(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
-  // Keyword scan (only if logFlagged is on and words exist).
-  if (settings.logFlagged) {
-    const regex = buildRegex(settings.flaggedWords);
-    const match = regex ? message.content.match(regex) : null;
-    if (match) {
-      const embed = new EmbedBuilder()
-        .setTitle(`🚩 Flagged word detected${editedNote}`)
-        .setColor(0xED4245)
-        .addFields(
-          { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
-          { name: 'Channel', value: `${message.channel}`, inline: true },
-          { name: 'Matched', value: `\`${match[0]}\``, inline: true },
-          { name: 'Message', value: truncate(message.content) },
-          { name: 'Jump', value: `[Go to message](${message.url})` },
-        )
-        .setTimestamp(message.createdAt);
-      await sendAlert(message.guild, embed);
-    }
+  // Layer 1 — keyword scan (only if logFlagged is on and words exist).
+  const matchedWord = settings.logFlagged
+    ? findFlaggedWord(message.content, settings.flaggedWords)
+    : null;
+  if (matchedWord) {
+    const embed = new EmbedBuilder()
+      .setTitle(`🚩 Flagged word detected${editedNote}`)
+      .setColor(0xED4245)
+      .addFields(
+        { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
+        { name: 'Channel', value: `${message.channel}`, inline: true },
+        { name: 'Matched', value: `\`${matchedWord}\``, inline: true },
+        { name: 'Message', value: truncate(message.content) },
+        { name: 'Jump', value: `[Go to message](${message.url})` },
+      )
+      .setTimestamp(message.createdAt);
+    await sendAlert(message.guild, embed);
   }
 
-  // AI contextual detection — only if enabled AND the cheap pre-filter trips,
-  // so the vast majority of messages never trigger a paid API call.
+  // Layer 2 — AI intent analysis. Works alongside the keyword filter: it judges
+  // intent/context on any substantive message (not just scam-shaped ones), and
+  // a flagged-word message gets analysed here too. shouldScreen() skips trivial
+  // messages and classifyMessage() caches repeats to keep calls down.
   if (settings.aiEnabled && shouldScreen(message.content)) {
     const result = await classifyMessage(message.content);
     if (result?.flag && result.confidence >= settings.aiThreshold) {

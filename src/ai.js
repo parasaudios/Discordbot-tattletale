@@ -12,25 +12,31 @@ const MODEL = 'claude-haiku-4-5-20251001';
 
 // The classification instructions. Kept stable so prompt caching applies on
 // every call (the system prefix is identical, so repeat calls are far cheaper).
-const SYSTEM_PROMPT = `You are a Discord moderation classifier. You are given a single chat message and must decide whether it is likely a scam, phishing attempt, harassment, or other clear rule-breaking abuse.
+// Scope is intentionally broad: it judges intent/context for any kind of
+// rule-breaking or harmful content, not only scams.
+const SYSTEM_PROMPT = `You are a Discord moderation classifier. You read a single chat message and judge, from its intent and context, whether it likely breaks community rules or is otherwise harmful — not just whether it contains certain keywords.
 
 Respond with ONLY a compact JSON object, no markdown, no extra text:
 {"flag": boolean, "category": string, "confidence": number, "reason": string}
 
-- "flag": true only if the message is likely abusive/scammy/harmful.
-- "category": one of "scam", "phishing", "harassment", "spam", "other", or "none".
+- "flag": true only if the message is likely harmful or rule-breaking.
+- "category": one of "scam", "phishing", "harassment", "hate", "threat", "sexual", "self-harm", "spam", "other", or "none".
 - "confidence": 0.0 to 1.0.
 - "reason": a brief (max 15 word) explanation.
 
-Be precise. Casual mention of gifts, money, or links is NOT automatically a scam — judge intent and context. Do not flag normal conversation.`;
+Judge intent and context. Normal friendly conversation, banter and jokes between friends, and casual mentions of money, links or gifts are NOT automatically violations. Flag genuine scams, phishing, threats, harassment, hate speech, unwanted sexual content, encouragement of self-harm, or coordinated spam. When unsure, use a lower confidence rather than over-flagging.`;
 
-// Cheap pre-filter: only spend an API call on messages that show at least one
-// scam/abuse signal. Most chatter never reaches the model, keeping costs tiny.
-const PREFILTER = /(https?:\/\/|discord\.gg\/|nitro|free\s|airdrop|giveaway|claim|wallet|seed phrase|crypto|\bdm me\b|click here|verify your|account will be|@everyone|@here)/i;
-
+// With AI enabled, screen any message that has real textual substance so the
+// model can judge intent broadly — it is NOT limited to scam-shaped messages.
+// Trivially short or non-text messages (greetings, "lol", emoji/number-only)
+// are skipped to avoid pointless API calls; identical messages are also served
+// from the cache in classifyMessage().
 export function shouldScreen(content) {
-  if (!content || content.length < 4) return false;
-  return PREFILTER.test(content);
+  if (!content) return false;
+  const trimmed = content.trim();
+  if (trimmed.length < 5) return false;
+  // Require a few real letters so emoji/number/punctuation spam is skipped.
+  return /[a-z]{3,}/i.test(trimmed);
 }
 
 // Short-lived result cache keyed on message content. A scammer pasting the same

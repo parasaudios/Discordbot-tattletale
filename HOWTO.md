@@ -167,9 +167,21 @@ That's it. Delete and edit logging are already on by default.
 
 ## Part D — Managing flagged words (with examples)
 
-Flagged words are matched **case-insensitively** and on **whole words** — adding
-`scam` flags "SCAM" and "Scam" but not the inside of "scamper". Phrases work too.
-Words are stored lowercased.
+Matching is **evasion-resistant** and **substring-based**, so a single entry
+catches the obvious dodges people use. Adding `poop` flags all of these:
+
+- Case variations — `Poop`, `POOP`
+- Letter-stretching — `pooooop`, `Poooooop`
+- Leetspeak / symbol swaps — `po0p`, `p00p`
+- Inserted separators — `p o o p`, `p.o.o.p`, `p-o-o-p`
+- As part of a bigger word — `poops`, `poopy`, "help i pooped"
+
+It does **not** match unrelated words that merely share letters (e.g. `popular`,
+`lollipop`). Phrases work too, and words are stored lowercased.
+
+> **Heads up — this can over-match.** Because it matches as a substring, a short
+> entry will also flag longer words that contain it. Prefer specific entries
+> (e.g. a full slur rather than a 3-letter fragment) to avoid false alarms.
 
 **Add a single word**
 ```
@@ -207,10 +219,10 @@ Words are stored lowercased.
 ```
 → ✅ Cleared 3 flagged word(s).
 
-> **What an alert looks like:** when someone posts a message containing a flagged
-> word, the mod channel gets a 🚩 embed with the user, the channel, the exact
-> word matched, the full message, and a jump link. Edits are re-scanned too, so
-> sneaking a banned word in *after* posting still triggers an alert.
+> **What an alert looks like:** when someone posts a message matching a flagged
+> word, the mod channel gets a 🚩 embed with the user, the channel, the flagged
+> word that matched, the full message, and a jump link. Edits are re-scanned too,
+> so sneaking a banned word in *after* posting still triggers an alert.
 
 ---
 
@@ -240,9 +252,12 @@ Three independent switches, each on by default. Use `enabled:true` or
 
 ## Part F — AI contextual detection
 
-Keyword matching only catches exact words you listed. AI detection adds a second
-layer that judges **intent** — catching scams, phishing, and harassment that are
-worded to slip past a word list.
+The keyword list catches *specific words you chose*. AI detection is the second
+layer that judges **intent and context** on messages generally — catching
+scams, phishing, harassment, hate, threats, unwanted sexual content, and spam
+that are worded to slip past a word list. The two work **together**: the keyword
+filter flags your banned words, and the AI independently reviews messages for
+anything harmful.
 
 **Requirements:** an `ANTHROPIC_API_KEY` set on the host (Part A). Enabling it
 without a key returns a warning and nothing runs.
@@ -253,10 +268,14 @@ without a key returns a warning and nothing runs.
 /tattletale ai enabled:false
 ```
 
-**How it keeps costs tiny:** a cheap built-in pre-filter means most messages
-never reach the AI — only messages showing scam/abuse signals (links, "free
-nitro", "dm me", "verify your account", etc.) get screened. Identical repeated
-messages are also cached for a few minutes, so spam costs a single call.
+**What it screens & costs:** when enabled, the AI reviews **every message with
+real text** (it skips trivial ones — greetings, "lol", emoji-only — and caches
+identical messages for a few minutes). This is broader than just scam-shaped
+messages, so it catches more — but it also means cost scales with how chatty your
+server is. On a small server it's pennies; on a very busy server it adds up. It
+uses a small, inexpensive model (Claude Haiku) with prompt caching to stay cheap.
+If you'd rather it only screen suspicious-looking messages, say so and a
+"suspicious-only" mode can be added.
 
 ### The confidence threshold
 
@@ -277,9 +296,9 @@ above your threshold**. Think of it as a sensitivity dial.
 The value is clamped to the 0–1 range and shown in `/tattletale settings`.
 
 > **What an AI alert looks like:** a 🤖 embed with the user, channel, the
-> **category** (scam / phishing / harassment / spam / other) and confidence %, a
-> short reason, the message, and a jump link. Like everything else, it only
-> notifies — it never acts on the message.
+> **category** (scam / phishing / harassment / hate / threat / sexual / self-harm
+> / spam / other) and confidence %, a short reason, the message, and a jump link.
+> Like everything else, it only notifies — it never acts on the message.
 
 ---
 

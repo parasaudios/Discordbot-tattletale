@@ -90,11 +90,16 @@ All done in Discord — no restart needed.
 - **See the list:** `/tattletale listwords`
 - **Wipe the list:** `/tattletale clearwords`
 
-How matching works:
+How matching works (evasion-resistant):
 
 - **Case-insensitive** — `Scam`, `SCAM`, and `scam` all match.
-- **Whole words only** — `scam` matches "that's a scam" but **not** "scampi". To
-  catch variants, add them separately (`scam`, `scammer`, `scamming`).
+- **Beats common dodges** — one entry catches letter-stretching (`scaaaam`),
+  leetspeak (`sc4m`, `5cam`), inserted separators (`s c a m`, `s.c.a.m`), and the
+  word inside bigger words (`scammer`, `scams`). So adding `poop` also catches
+  `pooooop`, `po0p`, `p o o p`, and `poops`.
+- **Can over-match** — because it matches as a substring, keep entries specific
+  (a full word/slur, not a 2–3 letter fragment) to avoid false alarms. It still
+  won't flag unrelated words that merely share letters (e.g. `popular`).
 - **Phrases** — add multi-word entries like `free nitro` to match the phrase.
 
 ---
@@ -115,9 +120,10 @@ All settings are saved per-server and survive restarts automatically.
 
 ## 6a. AI contextual detection (optional)
 
-Keyword matching only catches exact words. AI detection adds a second layer that
-judges *intent* — catching scams, phishing, and harassment that are worded to
-slip past a word list.
+The keyword list catches specific words you chose. AI detection is a second
+layer that judges *intent and context* on messages generally — scams, phishing,
+harassment, hate, threats, unwanted sexual content, and spam worded to slip past
+a word list. The two work together.
 
 - Turn on: `/tattletale ai enabled:true`
 - Turn off: `/tattletale ai enabled:false`
@@ -126,9 +132,11 @@ slip past a word list.
 How it works and what it costs:
 - It requires an `ANTHROPIC_API_KEY` set on the host (Railway variable). Without
   one, enabling it returns a warning and nothing runs.
-- A cheap built-in pre-filter means most messages never reach the AI — only
-  messages showing scam/abuse signals (links, "free nitro", "dm me", etc.) get
-  screened. This keeps costs to roughly pennies–a few dollars a month.
+- When enabled, it reviews **every message with real text** (skipping trivial
+  ones like greetings/emoji and caching identical messages). That's broader than
+  scam-only, so it catches more — but cost scales with how busy your server is.
+  It uses a small, cheap model (Claude Haiku) with prompt caching: pennies on a
+  small server, more on a very chatty one.
 - When the AI flags a message at or above your **confidence threshold** (default
   60%), an alert with the category and a short reason is posted to your mod
   channel. It never deletes or punishes — same notify-only behavior as the rest
@@ -177,8 +185,8 @@ TattleTaleBot → Commands**, which is enforced by Discord itself.
   to register commands. Global commands can take up to an hour to appear.
 - **"You need the Manage Server permission"** — Only members with that permission
   can use these commands.
-- **A keyword isn't matching** — Remember it matches whole words only; add
-  variants separately.
+- **A keyword over-matches** — Matching is substring-based and evasion-resistant,
+  so short entries can flag bigger words. Use more specific entries.
 
 ---
 
