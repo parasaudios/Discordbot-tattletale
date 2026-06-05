@@ -53,6 +53,15 @@ const command = new SlashCommandBuilder()
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
   .addSubcommand((s) =>
+    s.setName('aithreshold')
+      .setDescription('Set how confident the AI must be to flag a message (0–1).')
+      .addNumberOption((o) =>
+        o.setName('value')
+          .setDescription('0 = very sensitive, 1 = only when certain. Default 0.6.')
+          .setRequired(true)
+          .setMinValue(0)
+          .setMaxValue(1)))
+  .addSubcommand((s) =>
     s.setName('allowrole')
       .setDescription('Allow a role to use the bot commands (defense-in-depth).')
       .addRoleOption((o) =>

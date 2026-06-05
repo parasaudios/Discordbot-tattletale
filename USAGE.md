@@ -13,8 +13,10 @@ For first-time installation and hosting, see `README.md`.
 
 Tattletale reports three things to a single **mod-alert channel** you choose:
 
-- **Deleted messages** — who deleted what, and where.
-- **Edited messages** — the before/after text with a jump link.
+- **Deleted messages** — who deleted what, and where. Bulk deletes (purges,
+  ban-with-message-cleanup) are reported as a single summary too.
+- **Edited messages** — the before/after text with a jump link. Edited content
+  is re-scanned, so a banned word or scam link added *after* posting is still caught.
 - **Flagged keywords** — when someone uses a word on your list, with the user,
   channel, matched word, and full message.
 
@@ -71,6 +73,7 @@ permission. Responses are private (only you see them).
 | `/tattletale clearwords` | Remove **all** flagged words. |
 | `/tattletale toggle feature:<deletes\|edits\|flagged> enabled:<true\|false>` | Turn a logging feature on or off. |
 | `/tattletale ai enabled:<true\|false>` | Turn AI contextual scam/abuse detection on or off (needs an API key on the host). |
+| `/tattletale aithreshold value:<0–1>` | How sure the AI must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
 | `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (in addition to Manage Server). |
 | `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
 | `/tattletale settings` | Show the current configuration. |
@@ -118,6 +121,7 @@ slip past a word list.
 
 - Turn on: `/tattletale ai enabled:true`
 - Turn off: `/tattletale ai enabled:false`
+- Tune sensitivity: `/tattletale aithreshold value:0.6`
 
 How it works and what it costs:
 - It requires an `ANTHROPIC_API_KEY` set on the host (Railway variable). Without
@@ -125,9 +129,15 @@ How it works and what it costs:
 - A cheap built-in pre-filter means most messages never reach the AI — only
   messages showing scam/abuse signals (links, "free nitro", "dm me", etc.) get
   screened. This keeps costs to roughly pennies–a few dollars a month.
-- When the AI flags a message (≥60% confidence), an alert with the category and
-  a short reason is posted to your mod channel. It never deletes or punishes —
-  same notify-only behavior as the rest of the bot.
+- When the AI flags a message at or above your **confidence threshold** (default
+  60%), an alert with the category and a short reason is posted to your mod
+  channel. It never deletes or punishes — same notify-only behavior as the rest
+  of the bot.
+- **Confidence threshold** (`/tattletale aithreshold value:0–1`): for each
+  screened message the AI returns how sure it is (0–1) that the message is
+  abusive. Only messages scoring at or above your threshold trigger an alert.
+  Lower it (e.g. `0.4`) to catch more borderline cases at the cost of more false
+  alarms; raise it (e.g. `0.8`) to alert only on near-certain abuse. Default `0.6`.
 
 ## 6b. Restricting who can use the bot
 

@@ -17,6 +17,7 @@ import {
   clearWords,
   listWords,
   setAiEnabled,
+  setAiThreshold,
   addAllowedRole,
   removeAllowedRole,
   listAllowedRoles,
@@ -61,10 +62,14 @@ client.once(Events.ClientReady, (c) => {
   console.log(`Tattletale online as ${c.user.tag}`);
 });
 
-// --- Flagged-word scanning + AI contextual detection ---
-client.on(Events.MessageCreate, async (message) => {
-  if (message.author?.bot || !message.guild) return;
+// Screen a message's content for flagged words and (optionally) AI-detected
+// abuse. Shared by MessageCreate and MessageUpdate so an edit can't smuggle a
+// banned word / scam link past detection that only ran at post time.
+// `origin` is shown in the alert ('posted' vs 'edited').
+async function screenMessage(message, origin = 'posted') {
+  if (message.author?.bot || !message.guild || !message.content) return;
   const settings = getGuild(message.guild.id);
+  const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
   // Keyword scan (only if logFlagged is on and words exist).
   if (settings.logFlagged) {
@@ -72,7 +77,7 @@ client.on(Events.MessageCreate, async (message) => {
     const match = regex ? message.content.match(regex) : null;
     if (match) {
       const embed = new EmbedBuilder()
-        .setTitle('🚩 Flagged word detected')
+        .setTitle(`🚩 Flagged word detected${editedNote}`)
         .setColor(0xED4245)
         .addFields(
           { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
@@ -90,9 +95,9 @@ client.on(Events.MessageCreate, async (message) => {
   // so the vast majority of messages never trigger a paid API call.
   if (settings.aiEnabled && shouldScreen(message.content)) {
     const result = await classifyMessage(message.content);
-    if (result?.flag && result.confidence >= 0.6) {
+    if (result?.flag && result.confidence >= settings.aiThreshold) {
       const embed = new EmbedBuilder()
-        .setTitle('🤖 AI flagged a message')
+        .setTitle(`🤖 AI flagged a message${editedNote}`)
         .setColor(0xEB459E)
         .addFields(
           { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
@@ -106,7 +111,10 @@ client.on(Events.MessageCreate, async (message) => {
       await sendAlert(message.guild, embed);
     }
   }
-});
+}
+
+// --- Flagged-word scanning + AI contextual detection ---
+client.on(Events.MessageCreate, (message) => screenMessage(message, 'posted'));
 
 // --- Deleted messages ---
 client.on(Events.MessageDelete, async (message) => {
@@ -125,24 +133,71 @@ client.on(Events.MessageDelete, async (message) => {
   await sendAlert(message.guild, embed);
 });
 
-// --- Edited messages ---
-client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
-  if (!newMessage.guild || newMessage.author?.bot) return;
-  if (!getGuild(newMessage.guild.id).logEdits) return;
-  if (!oldMessage.partial && oldMessage.content === newMessage.content) return;
+// --- Bulk-deleted messages (purges, ban-with-message-delete, mod tools) ---
+// This is a SEPARATE gateway event from MessageDelete; without it, mass deletes
+// would never be logged. Uncached messages arrive with only an ID.
+client.on(Events.MessageBulkDelete, async (messages, channel) => {
+  const guild = channel.guild;
+  if (!guild || !getGuild(guild.id).logDeletes) return;
+
+  const human = [...messages.values()].filter((m) => !m.author?.bot);
+  const lines = human.slice(0, 15).map((m) => {
+    const who = m.author ? m.author.tag : 'Unknown (uncached)';
+    return `**${who}:** ${truncate(m.content || '*no cached content*', 120)}`;
+  });
+  const more = human.length > 15 ? `\n…and ${human.length - 15} more` : '';
 
   const embed = new EmbedBuilder()
-    .setTitle('✏️ Message edited')
-    .setColor(0x5865F2)
+    .setTitle('🧹 Bulk message delete')
+    .setColor(0xFEE75C)
     .addFields(
-      { name: 'User', value: newMessage.author ? `${newMessage.author} (${newMessage.author.tag})` : '*Unknown (uncached)*', inline: true },
-      { name: 'Channel', value: `${newMessage.channel}`, inline: true },
-      { name: 'Before', value: oldMessage.partial ? '*Unknown (uncached)*' : truncate(oldMessage.content) },
-      { name: 'After', value: truncate(newMessage.content) },
-      { name: 'Jump', value: `[Go to message](${newMessage.url})` },
+      { name: 'Channel', value: `${channel}`, inline: true },
+      { name: 'Total deleted', value: `${messages.size}`, inline: true },
+      {
+        name: 'Cached messages',
+        value: lines.length ? truncate(lines.join('\n') + more) : '*None were cached, so content is unavailable.*',
+      },
     )
     .setTimestamp(new Date());
-  await sendAlert(newMessage.guild, embed);
+  await sendAlert(guild, embed);
+});
+
+// --- Edited messages ---
+client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  if (!newMessage.guild) return;
+
+  // Discord also fires MessageUpdate for non-edits (a link auto-embedding, a
+  // pin, etc.). Only a real user content edit sets editedTimestamp, so this
+  // single check removes those false positives — even for uncached messages,
+  // where the old content==new comparison below can't help.
+  if (!newMessage.editedTimestamp) return;
+
+  // Resolve a partial (uncached) message so we have author + content to work with.
+  if (newMessage.partial) {
+    newMessage = await newMessage.fetch().catch(() => null);
+    if (!newMessage) return;
+  }
+  if (newMessage.author?.bot) return;
+  if (!oldMessage.partial && oldMessage.content === newMessage.content) return;
+
+  if (getGuild(newMessage.guild.id).logEdits) {
+    const embed = new EmbedBuilder()
+      .setTitle('✏️ Message edited')
+      .setColor(0x5865F2)
+      .addFields(
+        { name: 'User', value: newMessage.author ? `${newMessage.author} (${newMessage.author.tag})` : '*Unknown (uncached)*', inline: true },
+        { name: 'Channel', value: `${newMessage.channel}`, inline: true },
+        { name: 'Before', value: oldMessage.partial ? '*Unknown (uncached)*' : truncate(oldMessage.content) },
+        { name: 'After', value: truncate(newMessage.content) },
+        { name: 'Jump', value: `[Go to message](${newMessage.url})` },
+      )
+      .setTimestamp(new Date());
+    await sendAlert(newMessage.guild, embed);
+  }
+
+  // Re-screen the edited content so a banned word / scam edited in after posting
+  // is still caught.
+  await screenMessage(newMessage, 'edited');
 });
 
 // --- Slash commands ---
@@ -180,7 +235,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const channel = interaction.options.getChannel('channel');
         if (!channel?.isTextBased()) return reply(interaction, 'Please choose a text channel.');
         setAlertChannelId(guildId, channel.id);
-        return reply(interaction, `✅ Mod alerts will now be sent to ${channel}.`);
+
+        // Warn up front if the bot can't actually post there, so alerts don't
+        // silently vanish later.
+        const me = interaction.guild.members.me;
+        const perms = me ? channel.permissionsFor(me) : null;
+        const missing = ['ViewChannel', 'SendMessages', 'EmbedLinks']
+          .filter((p) => !perms?.has(PermissionFlagsBits[p]))
+          .map((p) => ({ ViewChannel: 'View Channel', SendMessages: 'Send Messages', EmbedLinks: 'Embed Links' }[p]));
+
+        let msg = `✅ Mod alerts will now be sent to ${channel}.`;
+        if (missing.length) {
+          msg += `\n⚠️ I'm missing **${missing.join(', ')}** in that channel, so alerts won't post until you grant them.`;
+        }
+        return reply(interaction, msg);
       }
       case 'addword': {
         const r = addWord(guildId, interaction.options.getString('word'));
@@ -217,6 +285,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         setAiEnabled(guildId, enabled);
         return reply(interaction, `✅ AI contextual detection is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
+      case 'aithreshold': {
+        const value = setAiThreshold(guildId, interaction.options.getNumber('value'));
+        return reply(
+          interaction,
+          `✅ AI confidence threshold set to **${value}**. The AI must be at least ${Math.round(value * 100)}% sure a message is abusive before it alerts (lower = more sensitive, higher = stricter).`,
+        );
+      }
       case 'allowrole': {
         const role = interaction.options.getRole('role');
         const r = addAllowedRole(guildId, role.id);
@@ -244,6 +319,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
             `Log flagged words: ${s.logFlagged ? 'ON' : 'OFF'}`,
             `AI detection: ${s.aiEnabled ? 'ON' : 'OFF'}`,
+            `AI threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
             `Flagged words: ${s.flaggedWords.length}`,
             `Command access: ${roles}`,
           ].join('\n'),
@@ -257,6 +333,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.replied) return reply(interaction, 'Something went wrong running that command.');
   }
 });
+
+// Keep the process alive on stray errors: discord.js handles its own gateway
+// reconnects, and a single bad event or rejected promise shouldn't crash the bot.
+client.on(Events.Error, (err) => console.error('Client error:', err));
+process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {

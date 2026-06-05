@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -31,6 +31,9 @@ const DEFAULTS = {
   logFlagged: true,
   // AI contextual scam/abuse detection (off by default; costs API usage).
   aiEnabled: false,
+  // Minimum confidence (0–1) the AI must report before a message is flagged.
+  // Lower = more sensitive (more alerts, more false positives); higher = stricter.
+  aiThreshold: 0.6,
   // Role IDs allowed to use /tattletale commands. Empty = fall back to the
   // Manage Server permission check only. When populated, the caller must ALSO
   // have one of these roles (defense-in-depth on top of Manage Server).
@@ -49,7 +52,11 @@ function loadAll() {
 let settings = loadAll();
 
 function persist() {
-  writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
+  // Atomic write: serialize to a temp file then rename over the target, so a
+  // crash mid-write can never leave a half-written (corrupt) settings.json.
+  const tmp = `${SETTINGS_PATH}.tmp`;
+  writeFileSync(tmp, JSON.stringify(settings, null, 2));
+  renameSync(tmp, SETTINGS_PATH);
 }
 
 // Returns a guild's settings, filling in any missing defaults.
@@ -108,6 +115,14 @@ export function listWords(guildId) {
 export function setAiEnabled(guildId, value) {
   getGuild(guildId).aiEnabled = !!value;
   persist();
+}
+
+// Clamp to [0, 1] so an out-of-range value can never disable or spam the AI.
+export function setAiThreshold(guildId, value) {
+  const v = Math.max(0, Math.min(1, Number(value)));
+  getGuild(guildId).aiThreshold = v;
+  persist();
+  return v;
 }
 
 // --- Role allowlist for command access ---

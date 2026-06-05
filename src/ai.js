@@ -33,10 +33,47 @@ export function shouldScreen(content) {
   return PREFILTER.test(content);
 }
 
+// Short-lived result cache keyed on message content. A scammer pasting the same
+// link/text repeatedly (exactly the abuse AI is meant to catch) would otherwise
+// cost one API call per copy; here repeats are served from memory for free.
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_MAX = 500;             // bounded so memory can't grow unbounded
+const cache = new Map();           // key -> { at: number, result }
+
+function cacheKey(content) {
+  return content.trim().slice(0, 500);
+}
+
+function cacheGet(key) {
+  const entry = cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.at > CACHE_TTL_MS) {
+    cache.delete(key);
+    return undefined;
+  }
+  // Re-insert to mark as most-recently-used (Map preserves insertion order).
+  cache.delete(key);
+  cache.set(key, entry);
+  return entry.result;
+}
+
+function cacheSet(key, result) {
+  cache.set(key, { at: Date.now(), result });
+  if (cache.size > CACHE_MAX) {
+    const oldest = cache.keys().next().value; // evict least-recently-used
+    cache.delete(oldest);
+  }
+}
+
 // Returns { flag, category, confidence, reason } or null on any error/no-key.
 export async function classifyMessage(content) {
   const c = getClient();
   if (!c) return null;
+
+  const key = cacheKey(content);
+  const cached = cacheGet(key);
+  if (cached !== undefined) return cached;
+
   try {
     const response = await c.messages.create({
       model: MODEL,
@@ -55,6 +92,7 @@ export async function classifyMessage(content) {
     const cleaned = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
     if (typeof parsed.flag !== 'boolean') return null;
+    cacheSet(key, parsed);
     return parsed;
   } catch (err) {
     console.error('AI classify error:', err.message);
