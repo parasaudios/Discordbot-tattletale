@@ -48,6 +48,21 @@ const command = new SlashCommandBuilder()
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
   .addSubcommand((s) =>
+    s.setName('ai')
+      .setDescription('Turn AI contextual scam/abuse detection on or off.')
+      .addBooleanOption((o) =>
+        o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
+  .addSubcommand((s) =>
+    s.setName('allowrole')
+      .setDescription('Allow a role to use the bot commands (defense-in-depth).')
+      .addRoleOption((o) =>
+        o.setName('role').setDescription('Role to authorize').setRequired(true)))
+  .addSubcommand((s) =>
+    s.setName('denyrole')
+      .setDescription('Remove a role from the command allowlist.')
+      .addRoleOption((o) =>
+        o.setName('role').setDescription('Role to remove').setRequired(true)))
+  .addSubcommand((s) =>
     s.setName('settings').setDescription('Show the current configuration.'))
   .toJSON();
 

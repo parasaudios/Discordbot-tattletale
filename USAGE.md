@@ -1,0 +1,176 @@
+# Tattletale — User Guide
+
+Everything about Tattletale is configured **inside Discord** with the
+`/tattletale` command. There are no files to edit and no restarts — every change
+takes effect immediately. This guide covers setup, every command, keywords,
+channels, and toggles.
+
+For first-time installation and hosting, see `README.md`.
+
+---
+
+## 1. What the bot does
+
+Tattletale reports three things to a single **mod-alert channel** you choose:
+
+- **Deleted messages** — who deleted what, and where.
+- **Edited messages** — the before/after text with a jump link.
+- **Flagged keywords** — when someone uses a word on your list, with the user,
+  channel, matched word, and full message.
+
+Every alert goes to the **dedicated alert channel you pick** — never the channel
+where the message or keyword appeared.
+
+---
+
+## 2. First-time setup (2 steps)
+
+1. **Pick an alert channel.** Create a private channel (e.g. `#mod-alerts`) that
+   only mods can see, and make sure the bot can **View Channel** and
+   **Send Messages** there. Then run:
+   ```
+   /tattletale setchannel channel:#mod-alerts
+   ```
+2. **Add some flagged words** (optional):
+   ```
+   /tattletale addword word:scam
+   ```
+
+That's it. Delete and edit logging are on by default.
+
+> Until you set an alert channel, the bot has nowhere to post. Do step 1 first.
+
+---
+
+## 3. Choosing channels
+
+You only choose **one** channel — where alerts are sent. The bot watches the
+whole server automatically; you don't configure which channels are watched.
+
+To make the alert channel private:
+1. Create a text channel.
+2. Channel settings → **Permissions**.
+3. Turn off **View Channel** for `@everyone`.
+4. Turn it on for your mod/admin role and for the Tattletale bot.
+
+If alerts don't appear, the bot most likely can't see or post in that channel.
+
+---
+
+## 4. Commands
+
+All commands are subcommands of `/tattletale` and require the **Manage Server**
+permission. Responses are private (only you see them).
+
+| Command | What it does |
+|---------|--------------|
+| `/tattletale setchannel channel:<#channel>` | Set the alert channel. Run again to change it. |
+| `/tattletale addword word:<text>` | Add a word or phrase to the flagged list. |
+| `/tattletale removeword word:<text>` | Remove a word from the list. |
+| `/tattletale listwords` | Show all flagged words. |
+| `/tattletale clearwords` | Remove **all** flagged words. |
+| `/tattletale toggle feature:<deletes\|edits\|flagged> enabled:<true\|false>` | Turn a logging feature on or off. |
+| `/tattletale ai enabled:<true\|false>` | Turn AI contextual scam/abuse detection on or off (needs an API key on the host). |
+| `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (in addition to Manage Server). |
+| `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
+| `/tattletale settings` | Show the current configuration. |
+
+---
+
+## 5. Managing flagged keywords
+
+All done in Discord — no restart needed.
+
+- **Add:** `/tattletale addword word:scam`
+- **Add a phrase:** `/tattletale addword word:free nitro`
+- **Remove:** `/tattletale removeword word:scam`
+- **See the list:** `/tattletale listwords`
+- **Wipe the list:** `/tattletale clearwords`
+
+How matching works:
+
+- **Case-insensitive** — `Scam`, `SCAM`, and `scam` all match.
+- **Whole words only** — `scam` matches "that's a scam" but **not** "scampi". To
+  catch variants, add them separately (`scam`, `scammer`, `scamming`).
+- **Phrases** — add multi-word entries like `free nitro` to match the phrase.
+
+---
+
+## 6. Toggles and other settings
+
+Turn any feature on or off at any time:
+
+- Stop logging deletes: `/tattletale toggle feature:deletes enabled:false`
+- Re-enable edits: `/tattletale toggle feature:edits enabled:true`
+- Pause keyword alerts: `/tattletale toggle feature:flagged enabled:false`
+
+Check everything at once with `/tattletale settings`.
+
+All settings are saved per-server and survive restarts automatically.
+
+---
+
+## 6a. AI contextual detection (optional)
+
+Keyword matching only catches exact words. AI detection adds a second layer that
+judges *intent* — catching scams, phishing, and harassment that are worded to
+slip past a word list.
+
+- Turn on: `/tattletale ai enabled:true`
+- Turn off: `/tattletale ai enabled:false`
+
+How it works and what it costs:
+- It requires an `ANTHROPIC_API_KEY` set on the host (Railway variable). Without
+  one, enabling it returns a warning and nothing runs.
+- A cheap built-in pre-filter means most messages never reach the AI — only
+  messages showing scam/abuse signals (links, "free nitro", "dm me", etc.) get
+  screened. This keeps costs to roughly pennies–a few dollars a month.
+- When the AI flags a message (≥60% confidence), an alert with the category and
+  a short reason is posted to your mod channel. It never deletes or punishes —
+  same notify-only behavior as the rest of the bot.
+
+## 6b. Restricting who can use the bot
+
+By default, anyone with **Manage Server** can use `/tattletale`. For tighter
+control, add a role allowlist — then a user must have Manage Server **and** one
+of the allowed roles:
+
+- Allow a role: `/tattletale allowrole role:@Bot Admin`
+- Remove a role: `/tattletale denyrole role:@Bot Admin`
+
+With no roles on the allowlist, Manage Server alone is sufficient (the default).
+You can also restrict the command in **Server Settings → Integrations →
+TattleTaleBot → Commands**, which is enforced by Discord itself.
+
+---
+
+## 7. Quick reference
+
+| I want to… | Command |
+|------------|---------|
+| Choose / change the alert channel | `/tattletale setchannel channel:<#channel>` |
+| Add a flagged word | `/tattletale addword word:<text>` |
+| Remove a flagged word | `/tattletale removeword word:<text>` |
+| See flagged words | `/tattletale listwords` |
+| Remove all flagged words | `/tattletale clearwords` |
+| Turn a feature on/off | `/tattletale toggle feature:<...> enabled:<...>` |
+| View current config | `/tattletale settings` |
+
+---
+
+## 8. Troubleshooting
+
+- **No alerts appear** — Set an alert channel (`/tattletale setchannel`), confirm
+  the bot can view/post there, and make sure the **Message Content Intent** is
+  enabled in the Developer Portal (see `README.md`).
+- **`/tattletale` doesn't show up** — An admin needs to run `npm run deploy` once
+  to register commands. Global commands can take up to an hour to appear.
+- **"You need the Manage Server permission"** — Only members with that permission
+  can use these commands.
+- **A keyword isn't matching** — Remember it matches whole words only; add
+  variants separately.
+
+---
+
+For installation and the Discord documentation reference, see `README.md` and
+`CLAUDE.md`.
