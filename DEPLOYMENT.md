@@ -81,26 +81,26 @@ server and doesn't listen on a port.
 
 ---
 
-## Step 5 — Register the slash commands (one time)
+## Step 5 — Slash-command registration (now automatic)
 
-Railway runs `npm start`, but the `/tattletale` command also needs to be
-registered with Discord once. The simplest way:
+The `/tattletale` command must be registered with Discord whenever its definition
+changes. **This now happens automatically on every deploy**: the `npm start`
+script runs a `prestart` hook (`node src/deploy-commands.js`) first, so each time
+Railway deploys or restarts the bot, the latest commands are re-registered before
+it comes online. A registration hiccup can't block the bot — the hook is allowed
+to fail without stopping startup.
 
-- **Locally:** with your `.env` filled in, run `npm run deploy` from your machine.
+So on Railway you don't need to do anything here. If you ever want to register
+manually (e.g. from your own machine without restarting the host), you still can:
 
-  *or*
-
-- **On Railway:** open the service's **Settings → Deploy**, temporarily set the
-  start command to `npm run deploy && npm start` for one deploy, then change it
-  back to `npm start`. (Leaving the combined command is harmless but re-registers
-  on every restart, which is unnecessary.)
+- **Locally:** with your `.env` filled in, run `npm run deploy`.
 
 Global commands can take up to an hour to appear. Setting `GUILD_ID` registers
 them to your server instantly — useful while testing.
 
-You only need to do this again if you change the command definitions in
-`src/deploy-commands.js`. Adding/removing flagged words at runtime does **not**
-require re-registering.
+> Note: registration is idempotent, so re-running it on every deploy/restart is
+> harmless — it just overwrites the command list with the same (or newly updated)
+> definition.
 
 ---
 

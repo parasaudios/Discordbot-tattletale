@@ -78,14 +78,20 @@ ANTHROPIC_API_KEY=             # blank = AI detection disabled
 
 ### Registering the slash command
 
-The `/tattletale` command must be registered with Discord **once** (and again
-only if the command's structure changes — adding words/toggles does **not**
-require this). From the project folder:
+The `/tattletale` command must be registered with Discord whenever its structure
+changes (adding words/toggles at runtime does **not** count). This is wired to
+happen **automatically**: `npm start` runs a `prestart` hook that registers the
+command first, so every launch/redeploy picks up the latest definition.
 
 ```bash
 npm install          # first time only
-npm run deploy       # registers the /tattletale command
-npm start            # starts the bot
+npm start            # auto-registers the command, then starts the bot
+```
+
+You can also register manually without starting the bot:
+
+```bash
+npm run deploy       # registers the /tattletale command only
 ```
 
 - With `GUILD_ID` set → the command appears in that server immediately.
@@ -333,7 +339,7 @@ View the live values any time:
 | **No alerts appear at all** | No alert channel set — run `/tattletale setchannel`. Confirm the feature toggle is on with `/tattletale settings`. |
 | **Alerts stopped / never post to the channel** | The bot lacks **View Channel / Send Messages / Embed Links** in the alert channel. Re-run `/tattletale setchannel` — it warns about missing permissions. |
 | **Keyword & AI detection do nothing** | **Message Content Intent** isn't enabled in the Developer Portal (Bot → Privileged Gateway Intents). |
-| **`/tattletale` doesn't show up** | An admin must run `npm run deploy` once. Global commands can take ~1 hour; set `GUILD_ID` for instant registration while testing. |
+| **`/tattletale` doesn't show up** | Registration runs automatically on start, but global commands can take ~1 hour to appear; set `GUILD_ID` for instant registration. If still missing, redeploy/restart the bot (or run `npm run deploy`) and check the logs for a registration error. |
 | **"You need the Manage Server permission"** | You're missing Manage Server, or a role allowlist is set and you don't hold an allowed role (`/tattletale allowrole`). |
 | **AI won't enable** | `ANTHROPIC_API_KEY` isn't set on the host. Add it, restart, then `/tattletale ai enabled:true`. |
 | **Settings reset after a redeploy** | Set `DATA_DIR` to a persistent/mounted volume so `settings.json` survives. |
