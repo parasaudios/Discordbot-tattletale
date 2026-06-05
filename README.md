@@ -38,7 +38,10 @@ that a server admin selects with `/tattletale setchannel`.
 ## Configuration
 
 Everything is configured **inside Discord** with the `/tattletale` command — no
-file edits and no restarts. See `USAGE.md` for the full command list. Quick start:
+file edits and no restarts. For the **complete how-to** — every setting,
+environment variable, and command with worked examples — see
+**[HOWTO.md](HOWTO.md)** (or `USAGE.md` for a shorter user-facing version).
+Quick start:
 
 ```
 /tattletale setchannel channel:#mod-alerts   # where alerts go
