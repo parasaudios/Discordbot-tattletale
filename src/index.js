@@ -18,11 +18,16 @@ import {
   listWords,
   setAiEnabled,
   setAiThreshold,
+  addAiTrigger,
+  removeAiTrigger,
+  editAiTrigger,
+  clearAiTriggers,
+  listAiTriggers,
   addAllowedRole,
   removeAllowedRole,
   listAllowedRoles,
 } from './config.js';
-import { shouldScreen, classifyMessage } from './ai.js';
+import { classifyMessage } from './ai.js';
 
 const client = new Client({
   intents: [
@@ -120,11 +125,13 @@ async function screenMessage(message, origin = 'posted') {
     await sendAlert(message.guild, embed);
   }
 
-  // Layer 2 — AI intent analysis. Works alongside the keyword filter: it judges
-  // intent/context on any substantive message (not just scam-shaped ones), and
-  // a flagged-word message gets analysed here too. shouldScreen() skips trivial
-  // messages and classifyMessage() caches repeats to keep calls down.
-  if (settings.aiEnabled && shouldScreen(message.content)) {
+  // Layer 2 — AI intent analysis, gated by the trigger list so API calls only
+  // happen when a scam/harassment signal is present. The AI then judges intent.
+  // (classifyMessage() also caches repeats to keep calls down.)
+  const aiTrigger = settings.aiEnabled
+    ? findFlaggedWord(message.content, settings.aiTriggers)
+    : null;
+  if (aiTrigger) {
     const result = await classifyMessage(message.content);
     if (result?.flag && result.confidence >= settings.aiThreshold) {
       const embed = new EmbedBuilder()
@@ -258,9 +265,50 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   const guildId = interaction.guild.id;
+  const group = interaction.options.getSubcommandGroup(false);
   const sub = interaction.options.getSubcommand();
 
   try {
+    // --- AI trigger list management: /tattletale aiwords <add|remove|edit|list|clear> ---
+    if (group === 'aiwords') {
+      switch (sub) {
+        case 'add': {
+          const r = addAiTrigger(guildId, interaction.options.getString('phrase'));
+          if (!r.ok && r.reason === 'exists') return reply(interaction, 'That phrase is already an AI trigger.');
+          if (!r.ok) return reply(interaction, 'That phrase is empty or invalid.');
+          return reply(interaction, `✅ Added \`${r.phrase}\` to the AI trigger list. The AI will now review messages containing it.`);
+        }
+        case 'remove': {
+          const r = removeAiTrigger(guildId, interaction.options.getString('phrase'));
+          if (!r.ok) return reply(interaction, 'That phrase is not on the AI trigger list.');
+          return reply(interaction, `✅ Removed \`${r.phrase}\` from the AI trigger list.`);
+        }
+        case 'edit': {
+          const r = editAiTrigger(
+            guildId,
+            interaction.options.getString('old'),
+            interaction.options.getString('new'),
+          );
+          if (!r.ok && r.reason === 'missing') return reply(interaction, 'That phrase is not on the AI trigger list.');
+          if (!r.ok && r.reason === 'exists') return reply(interaction, 'The new phrase is already on the list.');
+          if (!r.ok) return reply(interaction, 'The new phrase is empty or invalid.');
+          return reply(interaction, `✅ Changed \`${r.oldPhrase}\` → \`${r.newPhrase}\` in the AI trigger list.`);
+        }
+        case 'list': {
+          const triggers = listAiTriggers(guildId);
+          if (!triggers.length) return reply(interaction, 'No AI trigger phrases set. Restore the defaults with `/tattletale aiwords clear`.');
+          const body = `**AI trigger phrases (${triggers.length}):**\n${triggers.map((t) => `\`${t}\``).join(', ')}`;
+          return reply(interaction, truncate(body, 1900));
+        }
+        case 'clear': {
+          const count = clearAiTriggers(guildId);
+          return reply(interaction, `✅ Reset the AI trigger list to the built-in defaults (${count} phrase(s)).`);
+        }
+        default:
+          return reply(interaction, 'Unknown aiwords subcommand.');
+      }
+    }
+
     switch (sub) {
       case 'setchannel': {
         const channel = interaction.options.getChannel('channel');
@@ -351,6 +399,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Log flagged words: ${s.logFlagged ? 'ON' : 'OFF'}`,
             `AI detection: ${s.aiEnabled ? 'ON' : 'OFF'}`,
             `AI threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
+            `AI trigger phrases: ${s.aiTriggers.length}`,
             `Flagged words: ${s.flaggedWords.length}`,
             `Command access: ${roles}`,
           ].join('\n'),

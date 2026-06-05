@@ -26,18 +26,9 @@ Respond with ONLY a compact JSON object, no markdown, no extra text:
 
 Judge intent and context. Normal friendly conversation, banter and jokes between friends, and casual mentions of money, links or gifts are NOT automatically violations. Flag genuine scams, phishing, threats, harassment, hate speech, unwanted sexual content, encouragement of self-harm, or coordinated spam. When unsure, use a lower confidence rather than over-flagging.`;
 
-// With AI enabled, screen any message that has real textual substance so the
-// model can judge intent broadly — it is NOT limited to scam-shaped messages.
-// Trivially short or non-text messages (greetings, "lol", emoji/number-only)
-// are skipped to avoid pointless API calls; identical messages are also served
-// from the cache in classifyMessage().
-export function shouldScreen(content) {
-  if (!content) return false;
-  const trimmed = content.trim();
-  if (trimmed.length < 5) return false;
-  // Require a few real letters so emoji/number/punctuation spam is skipped.
-  return /[a-z]{3,}/i.test(trimmed);
-}
+// Note: which messages reach the AI is decided by the per-guild trigger list in
+// index.js (a message must contain a scam/harassment signal phrase). The AI then
+// judges intent. This keeps API calls limited to messages worth checking.
 
 // Short-lived result cache keyed on message content. A scammer pasting the same
 // link/text repeatedly (exactly the abuse AI is meant to catch) would otherwise

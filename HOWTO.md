@@ -131,6 +131,11 @@ use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that
 | `/tattletale toggle feature:<deletes\|edits\|flagged> enabled:<true\|false>` | Turn a logging feature on or off. |
 | `/tattletale ai enabled:<true\|false>` | Turn AI contextual detection on or off. |
 | `/tattletale aithreshold value:<0–1>` | Set how confident the AI must be before it alerts. |
+| `/tattletale aiwords add phrase:<text>` | Add a scam/harassment phrase that triggers AI review. |
+| `/tattletale aiwords remove phrase:<text>` | Remove a phrase from the AI trigger list. |
+| `/tattletale aiwords edit old:<text> new:<text>` | Replace one AI trigger phrase with another. |
+| `/tattletale aiwords list` | Show all AI trigger phrases. |
+| `/tattletale aiwords clear` | Reset the AI trigger list to the built-in defaults. |
 | `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (on top of Manage Server). |
 | `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
 | `/tattletale settings` | Show the current configuration. |
@@ -268,14 +273,33 @@ without a key returns a warning and nothing runs.
 /tattletale ai enabled:false
 ```
 
-**What it screens & costs:** when enabled, the AI reviews **every message with
-real text** (it skips trivial ones — greetings, "lol", emoji-only — and caches
-identical messages for a few minutes). This is broader than just scam-shaped
-messages, so it catches more — but it also means cost scales with how chatty your
-server is. On a small server it's pennies; on a very busy server it adds up. It
-uses a small, inexpensive model (Claude Haiku) with prompt caching to stay cheap.
-If you'd rather it only screen suspicious-looking messages, say so and a
-"suspicious-only" mode can be added.
+**What it screens & costs:** the AI only reviews a message when it contains a
+phrase from the **AI trigger list** (scam/harassment signals like `free nitro`,
+`http`, `kill yourself`, `seed phrase`, …). Everything else is ignored, so API
+calls — and cost — stay low. Identical messages are cached for a few minutes too.
+It uses a small, inexpensive model (Claude Haiku) with prompt caching.
+
+### The AI trigger list
+
+The trigger list is what makes the AI work *together with* the keyword filter:
+the filter flags your exact banned words, while the trigger list decides which
+messages are worth an AI intent-check. It ships with a sensible default set and
+is fully editable:
+
+```
+/tattletale aiwords list                          # see the current phrases
+/tattletale aiwords add phrase:get rich quick      # add a signal
+/tattletale aiwords remove phrase:loser            # drop one
+/tattletale aiwords edit old:kys new:end it        # rename one
+/tattletale aiwords clear                          # restore the built-in defaults
+```
+
+- Triggers are matched with the same evasion-resistant logic as flagged words
+  (so `fr33 n1tro` still trips `free nitro`).
+- A trigger only *starts* an AI review — the AI still judges intent, so an
+  innocent message that merely contains a trigger phrase won't be alerted on.
+- **`clear` restores the defaults** rather than emptying the list, so the AI
+  always keeps a baseline of scam/harassment signals to watch for.
 
 ### The confidence threshold
 
@@ -342,6 +366,7 @@ through the commands above (no manual editing needed).
 | Log flagged words | **ON** | `/tattletale toggle feature:flagged` |
 | AI detection | **OFF** | `/tattletale ai` |
 | AI confidence threshold | **0.6** | `/tattletale aithreshold` |
+| AI trigger phrases | built-in default set | `/tattletale aiwords add` / `remove` / `edit` / `list` / `clear` |
 | Command access roles | empty (anyone w/ Manage Server) | `/tattletale allowrole` / `denyrole` |
 
 View the live values any time:

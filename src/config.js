@@ -33,6 +33,21 @@ try {
 //   }
 // }
 
+// Built-in scam/harassment signal words & phrases. The AI is only invoked on a
+// message that contains one of these (so API calls happen only when something
+// looks worth checking — the AI then judges intent). Admins can add/remove/edit
+// this list; clearing it restores exactly this default set.
+export const DEFAULT_AI_TRIGGERS = [
+  // Scam / phishing signals
+  'http', 'discord.gg', 'nitro', 'free nitro', 'airdrop', 'giveaway',
+  'claim your', 'crypto', 'wallet', 'seed phrase', 'dm me', 'click here',
+  'verify your', 'account will be', 'free robux', 'steam gift',
+  'password reset', 'login here',
+  // Harassment / abuse signals
+  'kill yourself', 'kys', 'go die', 'you should die', 'neck yourself',
+  'nobody likes you', 'worthless', 'i hate you', 'retard', 'loser',
+];
+
 const DEFAULTS = {
   alertChannelId: null,
   flaggedWords: [],
@@ -44,6 +59,9 @@ const DEFAULTS = {
   // Minimum confidence (0–1) the AI must report before a message is flagged.
   // Lower = more sensitive (more alerts, more false positives); higher = stricter.
   aiThreshold: 0.6,
+  // Words/phrases that gate the AI: it only runs on messages containing one of
+  // these. Seeded from DEFAULT_AI_TRIGGERS; editable per guild.
+  aiTriggers: [...DEFAULT_AI_TRIGGERS],
   // Role IDs allowed to use /tattletale commands. Empty = fall back to the
   // Manage Server permission check only. When populated, the caller must ALSO
   // have one of these roles (defense-in-depth on top of Manage Server).
@@ -100,9 +118,11 @@ function persist() {
   }
 }
 
-// Returns a guild's settings, filling in any missing defaults.
+// Returns a guild's settings, filling in any missing defaults. Defaults are
+// deep-cloned so each guild gets its own arrays (otherwise mutating one guild's
+// flaggedWords/aiTriggers would corrupt the shared defaults for every guild).
 export function getGuild(guildId) {
-  settings[guildId] = { ...DEFAULTS, ...(settings[guildId] ?? {}) };
+  settings[guildId] = { ...structuredClone(DEFAULTS), ...(settings[guildId] ?? {}) };
   return settings[guildId];
 }
 
@@ -164,6 +184,54 @@ export function setAiThreshold(guildId, value) {
   getGuild(guildId).aiThreshold = v;
   persist();
   return v;
+}
+
+// --- AI trigger list (scam/harassment signals that gate AI screening) ---
+
+export function addAiTrigger(guildId, phrase) {
+  const g = getGuild(guildId);
+  const p = phrase.trim().toLowerCase();
+  if (!p) return { ok: false, reason: 'empty' };
+  if (g.aiTriggers.includes(p)) return { ok: false, reason: 'exists' };
+  g.aiTriggers.push(p);
+  persist();
+  return { ok: true, phrase: p };
+}
+
+export function removeAiTrigger(guildId, phrase) {
+  const g = getGuild(guildId);
+  const p = phrase.trim().toLowerCase();
+  const i = g.aiTriggers.indexOf(p);
+  if (i === -1) return { ok: false, reason: 'missing' };
+  g.aiTriggers.splice(i, 1);
+  persist();
+  return { ok: true, phrase: p };
+}
+
+export function editAiTrigger(guildId, oldPhrase, newPhrase) {
+  const g = getGuild(guildId);
+  const oldP = oldPhrase.trim().toLowerCase();
+  const newP = newPhrase.trim().toLowerCase();
+  if (!newP) return { ok: false, reason: 'empty' };
+  const i = g.aiTriggers.indexOf(oldP);
+  if (i === -1) return { ok: false, reason: 'missing' };
+  if (g.aiTriggers.includes(newP)) return { ok: false, reason: 'exists' };
+  g.aiTriggers[i] = newP;
+  persist();
+  return { ok: true, oldPhrase: oldP, newPhrase: newP };
+}
+
+// Clearing restores the built-in default set rather than emptying the list, so
+// the AI keeps a sensible baseline of scam/harassment signals to watch for.
+export function clearAiTriggers(guildId) {
+  const g = getGuild(guildId);
+  g.aiTriggers = [...DEFAULT_AI_TRIGGERS];
+  persist();
+  return g.aiTriggers.length;
+}
+
+export function listAiTriggers(guildId) {
+  return [...getGuild(guildId).aiTriggers];
 }
 
 // --- Role allowlist for command access ---

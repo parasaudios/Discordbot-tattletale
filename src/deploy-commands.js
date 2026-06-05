@@ -61,6 +61,30 @@ const command = new SlashCommandBuilder()
           .setRequired(true)
           .setMinValue(0)
           .setMaxValue(1)))
+  .addSubcommandGroup((g) =>
+    g.setName('aiwords')
+      .setDescription('Manage the scam/harassment phrases that trigger AI review.')
+      .addSubcommand((s) =>
+        s.setName('add')
+          .setDescription('Add a phrase that triggers AI review.')
+          .addStringOption((o) =>
+            o.setName('phrase').setDescription('Word or phrase that should trigger the AI').setRequired(true)))
+      .addSubcommand((s) =>
+        s.setName('remove')
+          .setDescription('Remove a phrase from the AI trigger list.')
+          .addStringOption((o) =>
+            o.setName('phrase').setDescription('The phrase to remove').setRequired(true)))
+      .addSubcommand((s) =>
+        s.setName('edit')
+          .setDescription('Replace one AI trigger phrase with another.')
+          .addStringOption((o) =>
+            o.setName('old').setDescription('Existing phrase to change').setRequired(true))
+          .addStringOption((o) =>
+            o.setName('new').setDescription('Replacement phrase').setRequired(true)))
+      .addSubcommand((s) =>
+        s.setName('list').setDescription('Show all AI trigger phrases.'))
+      .addSubcommand((s) =>
+        s.setName('clear').setDescription('Reset the AI trigger list to the built-in defaults.')))
   .addSubcommand((s) =>
     s.setName('allowrole')
       .setDescription('Allow a role to use the bot commands (defense-in-depth).')
