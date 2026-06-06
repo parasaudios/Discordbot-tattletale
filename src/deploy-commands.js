@@ -8,13 +8,14 @@ import {
   Routes,
   SlashCommandBuilder,
   ChannelType,
-  PermissionFlagsBits,
 } from 'discord.js';
 
+// No setDefaultMemberPermissions: access is controlled by the in-bot role
+// allowlist (/tattletale allowrole). Empty allowlist = everyone can use the
+// commands; once a role is added, only members with that role can.
 const command = new SlashCommandBuilder()
   .setName('tattletale')
   .setDescription('Configure the Tattletale moderation bot.')
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((s) =>
     s.setName('setchannel')
       .setDescription('Set where alerts go (optionally per severity tier).')
@@ -122,9 +123,9 @@ const command = new SlashCommandBuilder()
         s.setName('clear').setDescription('Reset the Judge trigger list to the built-in defaults.')))
   .addSubcommand((s) =>
     s.setName('allowrole')
-      .setDescription('Allow a role to use the bot commands (defense-in-depth).')
+      .setDescription('Restrict bot commands to a role (empty allowlist = everyone can use them).')
       .addRoleOption((o) =>
-        o.setName('role').setDescription('Role to authorize').setRequired(true)))
+        o.setName('role').setDescription('Role allowed to use the bot').setRequired(true)))
   .addSubcommand((s) =>
     s.setName('denyrole')
       .setDescription('Remove a role from the command allowlist.')

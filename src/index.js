@@ -315,13 +315,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'tattletale') return;
 
-  // Gate everything behind Manage Server.
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    return reply(interaction, 'You need the **Manage Server** permission to use this.');
-  }
-
-  // Defense-in-depth: if an allowlist of roles is configured, the caller must
-  // also hold one of those roles. Empty allowlist = Manage Server alone is enough.
+  // Access is controlled purely by the role allowlist:
+  //   empty        -> everyone can use the commands
+  //   has role(s)  -> only members holding one of those roles can use them
   const allowedRoles = listAllowedRoles(interaction.guild.id);
   if (allowedRoles.length > 0) {
     const memberRoleIds = interaction.member?.roles?.cache;
@@ -483,13 +479,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const role = interaction.options.getRole('role');
         const r = addAllowedRole(guildId, role.id);
         if (!r.ok) return reply(interaction, 'That role is already on the allowlist.');
-        return reply(interaction, `✅ Members with ${role} can now use the bot's commands.`);
+        return reply(interaction, `✅ ${role} can now use the bot's commands. **Only members with an allowed role can use it now** — make sure you have one of the allowed roles, or you'll lock yourself out.`);
       }
       case 'denyrole': {
         const role = interaction.options.getRole('role');
         const r = removeAllowedRole(guildId, role.id);
         if (!r.ok) return reply(interaction, 'That role is not on the allowlist.');
-        return reply(interaction, `✅ Removed ${role} from the command allowlist.`);
+        const remaining = listAllowedRoles(guildId).length;
+        const tail = remaining === 0 ? ' The allowlist is now empty, so **everyone** can use the bot again.' : '';
+        return reply(interaction, `✅ Removed ${role} from the command allowlist.${tail}`);
       }
       case 'settings': {
         const s = getGuild(guildId);
@@ -497,7 +495,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const tierCh = (id) => (id ? `<#${id}>` : '↳ default');
         const roles = s.allowedRoleIds.length
           ? s.allowedRoleIds.map((id) => `<@&${id}>`).join(', ')
-          : '*anyone with Manage Server*';
+          : '*everyone (no role restriction set)*';
         const store = storageInfo();
         const persistence = store.dataDirSet
           ? `✅ saving to \`${store.path}\` (ensure a volume is mounted there so it survives redeploys)`

@@ -33,7 +33,8 @@ that a server admin selects with `/tattletale setchannel`.
    npm start
    ```
 7. In your server, run `/tattletale setchannel` and pick the channel where mod alerts
-   should appear. (Requires the **Manage Server** permission.)
+   should appear. (By default anyone can use the commands — restrict with
+   `/tattletale allowrole`.)
 
 ## Configuration
 
@@ -49,7 +50,7 @@ Quick start:
 /tattletale settings                         # view current config
 ```
 
-All commands require the **Manage Server** permission.
+By default anyone can use the commands; restrict access with `/tattletale allowrole`.
 
 ## Notes
 

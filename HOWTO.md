@@ -130,8 +130,8 @@ In the **Developer Portal → Bot → Privileged Gateway Intents**, enable:
 ## Part B — In-Discord commands
 
 All configuration is done with subcommands of **`/tattletale`**, typed in any
-channel the bot can see. By default you need the **Manage Server** permission to
-use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that).
+channel the bot can see. By default **anyone** can use them; add a role allowlist
+to restrict access (see [Part G](#part-g--restricting-who-can-use-the-bot)).
 
 ### Command reference
 
@@ -150,8 +150,8 @@ use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that
 | `/tattletale judgewords edit old:<text> new:<text>` | Replace one Judge trigger phrase with another. |
 | `/tattletale judgewords list` | Show all Judge trigger phrases. |
 | `/tattletale judgewords clear` | Reset the Judge trigger list to the built-in defaults. |
-| `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (on top of Manage Server). |
-| `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
+| `/tattletale allowrole role:<@role>` | Restrict commands to this role. Empty allowlist = everyone; once a role is added, only members with an allowed role can use the bot. |
+| `/tattletale denyrole role:<@role>` | Remove a role from the allowlist (empty again = everyone). |
 | `/tattletale settings` | Show the current configuration. |
 
 > All replies are **ephemeral** — only you see them, so configuring the bot
@@ -346,27 +346,28 @@ The value is clamped to the 0–1 range and shown in `/tattletale settings`.
 
 ## Part G — Restricting who can use the bot
 
-By default, **anyone with Manage Server** can run `/tattletale`. For tighter
-control you can require a specific role *in addition to* Manage Server (defense in
-depth — a caller must have Manage Server **and** an allowed role).
+Access is controlled **purely by a role allowlist** — no Discord permission is
+required. By default the allowlist is empty, so **anyone** can run `/tattletale`.
+Add a role and access is restricted to members holding one of the allowed roles.
 
-**Allow a role**
+**Allow a role** (restricts access from here on)
 ```
 /tattletale allowrole role:@Bot Admin
 ```
-→ ✅ Members with @Bot Admin can now use the bot's commands.
+→ ✅ @Bot Admin can now use the bot's commands. Only members with an allowed role can use it now.
 
 **Remove a role from the allowlist**
 ```
 /tattletale denyrole role:@Bot Admin
 ```
 
-- **Empty allowlist** (default) → Manage Server alone is enough.
-- **Non-empty allowlist** → the caller must have Manage Server **and** at least
-  one listed role.
+- **Empty allowlist** (default) → **everyone** can use the bot.
+- **Non-empty allowlist** → only members with at least one listed role can use it.
 
-> Keep at least one role you hold on the allowlist, or make sure you have Manage
-> Server, so you don't lock yourself out.
+> ⚠️ **Lockout warning:** the moment you add the first role, anyone without an
+> allowed role (including you, if you don't hold it) loses access — and only
+> someone with an allowed role can run `denyrole` to undo it. Always add a role
+> **you have** first.
 
 ---
 
@@ -387,7 +388,7 @@ through the commands above (no manual editing needed).
 | judging | **OFF** | `/tattletale judge` |
 | Judge confidence threshold | **0.6** | `/tattletale judgethreshold` |
 | Judge trigger phrases | built-in default set | `/tattletale judgewords add` / `remove` / `edit` / `list` / `clear` |
-| Command access roles | empty (anyone w/ Manage Server) | `/tattletale allowrole` / `denyrole` |
+| Command access roles | empty (everyone can use it) | `/tattletale allowrole` / `denyrole` |
 
 View the live values any time:
 ```
@@ -404,7 +405,7 @@ View the live values any time:
 | **Alerts stopped / never post to the channel** | The bot lacks **View Channel / Send Messages / Embed Links** in the alert channel. Re-run `/tattletale setchannel` — it warns about missing permissions. |
 | **Keyword & judging do nothing** | **Message Content Intent** isn't enabled in the Developer Portal (Bot → Privileged Gateway Intents). |
 | **`/tattletale` doesn't show up** | Registration runs automatically on start, but global commands can take ~1 hour to appear; set `GUILD_ID` for instant registration. If still missing, redeploy/restart the bot (or run `npm run deploy`) and check the logs for a registration error. |
-| **"You need the Manage Server permission"** | You're missing Manage Server, or a role allowlist is set and you don't hold an allowed role (`/tattletale allowrole`). |
+| **"You do not have a role authorized to use this bot"** | A role allowlist is set and you don't hold an allowed role. Someone with an allowed role must `/tattletale denyrole` or `allowrole` to fix access. |
 | **Judge won't enable** | `ANTHROPIC_API_KEY` isn't set on the host. Add it, restart, then `/tattletale judge enabled:true`. |
 | **Settings reset after a redeploy** | Set `DATA_DIR` to a persistent/mounted volume so `settings.json` survives. |
 | **Deleted/edited message shows "Unknown (uncached)"** | The message was posted before the bot started (not in its cache), so Discord can't supply the original author/content. New messages are unaffected. |
