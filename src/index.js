@@ -322,12 +322,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const group = interaction.options.getSubcommandGroup(false);
   const sub = interaction.options.getSubcommand();
 
-  // --- TEMP access diagnostic ---------------------------------------------------
+  // --- Access diagnostic (opt-in) ----------------------------------------------
   // Logs who invoked the command, the requirement, whether they meet it (and how),
-  // and — crucially — whether they used the SERVER command (permission-locked) or a
-  // stale GLOBAL command (no lock). This is to figure out why members without
-  // Manage Server can still run the commands. Posts to the alert channel + console.
-  try {
+  // and whether they used the SERVER command (permission-locked) or a stale GLOBAL
+  // command (no lock). Off by default; set LOG_ACCESS_DIAG=true to re-enable when
+  // debugging who can run the commands. Posts to the alert channel + console.
+  if (process.env.LOG_ACCESS_DIAG === 'true') try {
     const cmdPath = ['/tattletale', group, sub].filter(Boolean).join(' ');
     const hasManageServer = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
     const isAdmin = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
@@ -495,7 +495,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
           msg += '\n(Any tier without its own channel falls back to the default set with `/tattletale setchannel` — no tier.)';
         }
         if (missing.length) {
-          msg += `\n⚠️ I'm missing **${missing.join(', ')}** in that channel, so alerts won't post until you grant them.`;
+          // Try to grant ourselves the missing perms in that channel. Works only
+          // if the bot has Manage Roles (or Manage Channels) and a high enough role.
+          let granted = false;
+          try {
+            await channel.permissionOverwrites.edit(me, {
+              ViewChannel: true,
+              SendMessages: true,
+              EmbedLinks: true,
+            });
+            granted = true;
+          } catch { /* lacks Manage Roles / can't edit overwrites */ }
+          msg += granted
+            ? `\n🔧 I granted myself **${missing.join(', ')}** in that channel, so alerts will post now.`
+            : `\n⚠️ I'm missing **${missing.join(', ')}** there and couldn't grant it myself — I need the **Manage Roles** permission (and a role above the channel's overrides). Either give me Manage Roles, or add me to the channel manually (channel → Edit Channel → Permissions → add the bot with View Channel, Send Messages, Embed Links).`;
         }
         return reply(interaction, msg);
       }
@@ -643,11 +656,11 @@ if (isMain) {
   }, 30000).unref();
 
   // Firehose: discord.js internal gateway log (heartbeats, resumes, session
-  // invalidations, rate limits). Verbose but definitive for connection issues.
-  // Set LOG_DISCORD_DEBUG=false to silence it once the cause is found.
-  if (process.env.LOG_DISCORD_DEBUG !== 'false') {
+  // invalidations, rate limits). Off by default — set LOG_DISCORD_DEBUG=true to
+  // re-enable it when chasing a connection issue. Gateway warnings stay on.
+  client.on(Events.Warn, (m) => console.warn('[discord:warn]', m));
+  if (process.env.LOG_DISCORD_DEBUG === 'true') {
     client.on(Events.Debug, (m) => console.log('[discord:debug]', m));
-    client.on(Events.Warn, (m) => console.warn('[discord:warn]', m));
   }
 
   // Tiny HTTP server so platform healthchecks (e.g. Railway) get a 200 response.

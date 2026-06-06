@@ -110,8 +110,9 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 `DISCORD_TOKEN` (req), `CLIENT_ID` (req, for command registration),
 `SERVER_ID` (optional, instant server commands; legacy `GUILD_ID` still works), `DATA_DIR` (point at a mounted
 volume so `settings.json` survives redeploys), `ANTHROPIC_API_KEY` (optional, AI),
-`PORT` (healthcheck server; host-provided), `LOG_DISCORD_DEBUG` (set `false` to
-silence the gateway debug firehose).
+`PORT` (healthcheck server; host-provided), `LOG_DISCORD_DEBUG` (set `true` to
+enable the gateway debug firehose; off by default), `LOG_ACCESS_DIAG` (set `true`
+to log a per-command access diagnostic; off by default).
 
 ### Deployment & reliability (Railway) — important
 
