@@ -523,6 +523,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 
+// Gateway lifecycle logging — makes a restart loop or connection instability
+// obvious in the host's logs (ClientReady only fires once, so it can't show
+// reconnects). A healthy bot logs ShardReady once; repeated Disconnect/Resume
+// lines mean it's struggling to stay connected.
+client.on(Events.ShardReady, (id) => console.log(`Gateway: shard ${id} ready (connected to Discord).`));
+client.on(Events.ShardResume, (id, replayed) => console.log(`Gateway: shard ${id} reconnected (resumed, ${replayed} events replayed).`));
+client.on(Events.ShardReconnecting, (id) => console.warn(`Gateway: shard ${id} reconnecting…`));
+client.on(Events.ShardDisconnect, (event, id) => console.warn(`Gateway: shard ${id} disconnected (code ${event?.code}).`));
+client.on(Events.ShardError, (err, id) => console.error(`Gateway: shard ${id} error:`, err.message));
+
 // Keep the process alive on stray errors: discord.js handles its own gateway
 // reconnects, and a single bad event, rejected promise, or uncaught throw
 // shouldn't crash the whole bot (which the host would report as a failed deploy).
