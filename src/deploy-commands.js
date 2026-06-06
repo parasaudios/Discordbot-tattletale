@@ -124,6 +124,19 @@ if (!token || !clientId) {
 const rest = new REST({ version: '10' }).setToken(token);
 const body = [command];
 
+// Utility: `npm run deploy -- --clear-global` removes any leftover GLOBAL command
+// copies (e.g. registered before GUILD_ID was set) that can duplicate or confuse
+// the client's command picker. Guild commands are left untouched.
+if (process.argv.includes('--clear-global')) {
+  try {
+    await rest.put(Routes.applicationCommands(clientId), { body: [] });
+    console.log('Cleared all global commands (guild commands left intact).');
+  } catch (error) {
+    console.error(error);
+  }
+  process.exit(0);
+}
+
 // Re-registering identical commands on every redeploy makes Discord's client
 // re-sync the command list (causing the "commands take a moment to show up"
 // flicker). So we hash the command definition + target and skip the API call
