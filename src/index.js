@@ -134,8 +134,8 @@ async function sendAlert(guild, embed, channelId, notify) {
 
 // Severity tiers, their colour, and a label for the alert title.
 const TIERS = {
-  high: { color: 0xED4245, label: '🔴 High alert — bad word + AI confirmed harmful' },
-  medium: { color: 0xE67E22, label: '🟠 Warning — AI flagged as harmful' },
+  high: { color: 0xED4245, label: '🔴 High alert — bad word + Judge confirmed harmful' },
+  medium: { color: 0xE67E22, label: '🟠 Warning — Judge flagged as harmful' },
   low: { color: 0xF1C40F, label: '🟡 Notice — flagged but likely harmless' },
   good: { color: 0x57F287, label: '✅ Good word used (safe)' },
 };
@@ -343,14 +343,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       switch (sub) {
         case 'add': {
           const r = addAiTrigger(guildId, interaction.options.getString('phrase'));
-          if (!r.ok && r.reason === 'exists') return reply(interaction, 'That phrase is already an AI trigger.');
+          if (!r.ok && r.reason === 'exists') return reply(interaction, 'That phrase is already a Judge trigger.');
           if (!r.ok) return reply(interaction, 'That phrase is empty or invalid.');
-          return reply(interaction, `✅ Added \`${r.phrase}\` to the AI trigger list. The AI will now review messages containing it.`);
+          return reply(interaction, `✅ Added \`${r.phrase}\` to the Judge trigger list. The Judge will now review messages containing it.`);
         }
         case 'remove': {
           const r = removeAiTrigger(guildId, interaction.options.getString('phrase'));
-          if (!r.ok) return reply(interaction, 'That phrase is not on the AI trigger list.');
-          return reply(interaction, `✅ Removed \`${r.phrase}\` from the AI trigger list.`);
+          if (!r.ok) return reply(interaction, 'That phrase is not on the Judge trigger list.');
+          return reply(interaction, `✅ Removed \`${r.phrase}\` from the Judge trigger list.`);
         }
         case 'edit': {
           const r = editAiTrigger(
@@ -358,20 +358,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
             interaction.options.getString('old'),
             interaction.options.getString('new'),
           );
-          if (!r.ok && r.reason === 'missing') return reply(interaction, 'That phrase is not on the AI trigger list.');
+          if (!r.ok && r.reason === 'missing') return reply(interaction, 'That phrase is not on the Judge trigger list.');
           if (!r.ok && r.reason === 'exists') return reply(interaction, 'The new phrase is already on the list.');
           if (!r.ok) return reply(interaction, 'The new phrase is empty or invalid.');
-          return reply(interaction, `✅ Changed \`${r.oldPhrase}\` → \`${r.newPhrase}\` in the AI trigger list.`);
+          return reply(interaction, `✅ Changed \`${r.oldPhrase}\` → \`${r.newPhrase}\` in the Judge trigger list.`);
         }
         case 'list': {
           const triggers = listAiTriggers(guildId);
-          if (!triggers.length) return reply(interaction, 'No AI trigger phrases set. Restore the defaults with `/tattletale judgewords clear`.');
-          const body = `**AI trigger phrases (${triggers.length}):**\n${triggers.map((t) => `\`${t}\``).join(', ')}`;
+          if (!triggers.length) return reply(interaction, 'No Judge trigger phrases set. Restore the defaults with `/tattletale judgewords clear`.');
+          const body = `**Judge trigger phrases (${triggers.length}):**\n${triggers.map((t) => `\`${t}\``).join(', ')}`;
           return reply(interaction, truncate(body, 1900));
         }
         case 'clear': {
           const count = clearAiTriggers(guildId);
-          return reply(interaction, `✅ Reset the AI trigger list to the built-in defaults (${count} phrase(s)).`);
+          return reply(interaction, `✅ Reset the Judge trigger list to the built-in defaults (${count} phrase(s)).`);
         }
         default:
           return reply(interaction, 'Unknown judgewords subcommand.');
@@ -445,7 +445,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const tierLabel = {
           default: 'all alerts (default)',
           high: '🔴 high-severity alerts',
-          medium: '🟠 medium (AI-only) alerts',
+          medium: '🟠 medium (Judge-only) alerts',
           low: '🟡 low / harmless alerts',
         }[tier];
         let msg = `✅ ${tierLabel} will now be sent to ${channel}.`;
@@ -467,16 +467,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case 'judge': {
         const enabled = interaction.options.getBoolean('enabled');
         if (enabled && !process.env.ANTHROPIC_API_KEY) {
-          return reply(interaction, '⚠️ AI detection needs an `ANTHROPIC_API_KEY` set on the host. Add it, then enable.');
+          return reply(interaction, '⚠️ Judging needs an `ANTHROPIC_API_KEY` set on the host. Add it, then enable.');
         }
         setAiEnabled(guildId, enabled);
-        return reply(interaction, `✅ AI contextual detection is now **${enabled ? 'ON' : 'OFF'}**.`);
+        return reply(interaction, `✅ Contextual judging is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
       case 'judgethreshold': {
         const value = setAiThreshold(guildId, interaction.options.getNumber('value'));
         return reply(
           interaction,
-          `✅ AI confidence threshold set to **${value}**. The AI must be at least ${Math.round(value * 100)}% sure a message is abusive before it alerts (lower = more sensitive, higher = stricter).`,
+          `✅ Judge confidence threshold set to **${value}**. The Judge must be at least ${Math.round(value * 100)}% sure a message is abusive before it alerts (lower = more sensitive, higher = stricter).`,
         );
       }
       case 'allowrole': {
@@ -513,9 +513,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
             `Log bad words: ${s.logBadWords ? 'ON' : 'OFF'}`,
-            `AI detection: ${s.aiEnabled ? 'ON' : 'OFF'}`,
-            `AI threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
-            `✅ Good words: ${s.goodWords.length} · 🚫 Bad words: ${s.badWords.length} · 🤖 AI triggers: ${s.aiTriggers.length}`,
+            `Judging: ${s.aiEnabled ? 'ON' : 'OFF'}`,
+            `Judge threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
+            `✅ Good words: ${s.goodWords.length} · 🚫 Bad words: ${s.badWords.length} · 🤖 Judge triggers: ${s.aiTriggers.length}`,
             `Command access: ${roles}`,
             `Storage: ${persistence}`,
           ].join('\n'),
@@ -594,7 +594,7 @@ if (isMain) {
   console.log(`  CLIENT_ID:         ${present('CLIENT_ID')}`);
   console.log(`  GUILD_ID:          ${process.env.GUILD_ID ? 'set (instant guild commands)' : 'unset (global commands, ~1h)'}`);
   console.log(`  DATA_DIR:          ${process.env.DATA_DIR ? `set (${process.env.DATA_DIR})` : 'unset (settings WIPED on redeploy)'}`);
-  console.log(`  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set (AI available)' : 'unset (AI disabled)'}`);
+  console.log(`  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set (judging available)' : 'unset (judging disabled)'}`);
   console.log(`  PID / PPID:        ${process.pid} / ${process.ppid}`);
   // DEFINITIVE check of whether the signal-handling fix is active: if this was
   // launched by `npm start`, npm sits in front of node and eats SIGTERM (causing

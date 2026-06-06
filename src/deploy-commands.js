@@ -28,16 +28,16 @@ const command = new SlashCommandBuilder()
           .setDescription('Which alerts go here (omit = default/fallback for all tiers)')
           .addChoices(
             { name: 'Default — all alerts / fallback', value: 'default' },
-            { name: 'High — flagged word + AI confirm harmful', value: 'high' },
-            { name: 'Medium — AI-only harmful', value: 'medium' },
+            { name: 'High — bad word + Judge confirms harmful', value: 'high' },
+            { name: 'Medium — Judge-only harmful', value: 'medium' },
             { name: 'Low — flagged but harmless', value: 'low' },
           )))
   .addSubcommandGroup((g) =>
     g.setName('badword')
-      .setDescription('Bad words: AI-checked & tiered. Optional per-word channel + ping.')
+      .setDescription('Bad words: Judge-checked & tiered. Optional per-word channel + ping.')
       .addSubcommand((s) =>
         s.setName('add')
-          .setDescription('Add a bad word (AI-checked for severity).')
+          .setDescription('Add a bad word (Judge-checked for severity).')
           .addStringOption((o) =>
             o.setName('word').setDescription('The word or phrase to flag as bad').setRequired(true))
           .addChannelOption((o) =>
@@ -52,7 +52,7 @@ const command = new SlashCommandBuilder()
       .addSubcommand((s) => s.setName('clear').setDescription('Remove ALL bad words.')))
   .addSubcommandGroup((g) =>
     g.setName('goodword')
-      .setDescription('Good words: safe notify-only, NO AI check. Optional per-word channel + ping.')
+      .setDescription('Good words: safe notify-only, NO Judge check. Optional per-word channel + ping.')
       .addSubcommand((s) =>
         s.setName('add')
           .setDescription('Add a good (safe) word to be notified about.')
@@ -84,12 +84,12 @@ const command = new SlashCommandBuilder()
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
   .addSubcommand((s) =>
     s.setName('judge')
-      .setDescription('Turn AI contextual scam/abuse detection on or off.')
+      .setDescription('Turn contextual scam/abuse judging on or off.')
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
   .addSubcommand((s) =>
     s.setName('judgethreshold')
-      .setDescription('Set how confident the AI must be to flag a message (0–1).')
+      .setDescription('Set how confident the Judge must be to flag a message (0–1).')
       .addNumberOption((o) =>
         o.setName('value')
           .setDescription('0 = very sensitive, 1 = only when certain. Default 0.6.')
@@ -98,28 +98,28 @@ const command = new SlashCommandBuilder()
           .setMaxValue(1)))
   .addSubcommandGroup((g) =>
     g.setName('judgewords')
-      .setDescription('Manage the scam/harassment phrases that trigger AI review.')
+      .setDescription('Manage the scam/harassment phrases that trigger Judge review.')
       .addSubcommand((s) =>
         s.setName('add')
-          .setDescription('Add a phrase that triggers AI review.')
+          .setDescription('Add a phrase that triggers Judge review.')
           .addStringOption((o) =>
-            o.setName('phrase').setDescription('Word or phrase that should trigger the AI').setRequired(true)))
+            o.setName('phrase').setDescription('Word or phrase that should trigger the Judge').setRequired(true)))
       .addSubcommand((s) =>
         s.setName('remove')
-          .setDescription('Remove a phrase from the AI trigger list.')
+          .setDescription('Remove a phrase from the Judge trigger list.')
           .addStringOption((o) =>
             o.setName('phrase').setDescription('The phrase to remove').setRequired(true)))
       .addSubcommand((s) =>
         s.setName('edit')
-          .setDescription('Replace one AI trigger phrase with another.')
+          .setDescription('Replace one Judge trigger phrase with another.')
           .addStringOption((o) =>
             o.setName('old').setDescription('Existing phrase to change').setRequired(true))
           .addStringOption((o) =>
             o.setName('new').setDescription('Replacement phrase').setRequired(true)))
       .addSubcommand((s) =>
-        s.setName('list').setDescription('Show all AI trigger phrases.'))
+        s.setName('list').setDescription('Show all Judge trigger phrases.'))
       .addSubcommand((s) =>
-        s.setName('clear').setDescription('Reset the AI trigger list to the built-in defaults.')))
+        s.setName('clear').setDescription('Reset the Judge trigger list to the built-in defaults.')))
   .addSubcommand((s) =>
     s.setName('allowrole')
       .setDescription('Allow a role to use the bot commands (defense-in-depth).')

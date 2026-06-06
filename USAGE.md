@@ -17,12 +17,12 @@ Tattletale reports three things to a single **mod-alert channel** you choose:
   ban-with-message-cleanup) are reported as a single summary too.
 - **Edited messages** — the before/after text with a jump link. Edited content
   is re-scanned, so a banned word or scam link added *after* posting is still caught.
-- **Word/AI alerts** — from three lists (**good words**, **bad words**, **AI
+- **Word/Judge alerts** — from three lists (**good words**, **bad words**, **Judge
   words**), colour-coded by severity:
-  - ✅ **Good** (green) — a good word was used; safe FYI, **no AI check**.
-  - 🔴 **High** (red) — a **bad word** *and* the AI both judge it harmful.
-  - 🟠 **Medium** (orange) — the AI judges it harmful (via an AI word, no bad word).
-  - 🟡 **Low** (yellow) — a bad word/AI-reviewed but **not** confirmed harmful.
+  - ✅ **Good** (green) — a good word was used; safe FYI, **no Judge check**.
+  - 🔴 **High** (red) — a **bad word** *and* the Judge both rule it harmful.
+  - 🟠 **Medium** (orange) — the Judge rules it harmful (via a Judge word, no bad word).
+  - 🟡 **Low** (yellow) — a bad word/Judge-reviewed but **not** confirmed harmful.
 
 Every alert goes to the **channel(s) you pick** — never the channel where the
 message appeared. By default all alerts share one channel; you can route by
@@ -73,30 +73,30 @@ permission. Responses are private (only you see them).
 | Command | What it does |
 |---------|--------------|
 | `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set the alert channel. No `tier` = default for all; a `tier` routes that severity to its own channel. |
-| `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (AI-checked → tiered). `add` takes optional `channel:` + `notify:` (user/role) per word. |
-| `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no AI**). Same optional `channel:` + `notify:`. |
+| `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (Judge-checked → tiered). `add` takes optional `channel:` + `notify:` (user/role) per word. |
+| `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no Judge**). Same optional `channel:` + `notify:`. |
 | `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
-| `/tattletale judge enabled:<true\|false>` | Turn AI contextual scam/abuse detection on or off (needs an API key on the host). |
-| `/tattletale judgethreshold value:<0–1>` | How sure the AI must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
-| `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger AI review. `clear` restores the built-in defaults. |
+| `/tattletale judge enabled:<true\|false>` | Turn contextual scam/abuse judging on or off (needs an API key on the host). |
+| `/tattletale judgethreshold value:<0–1>` | How sure the Judge must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
+| `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger Judge review. `clear` restores the built-in defaults. |
 | `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (in addition to Manage Server). |
 | `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
 | `/tattletale settings` | Show the current configuration. |
 
 ---
 
-## 5. Managing word lists (good / bad / AI)
+## 5. Managing word lists (good / bad / Judge)
 
 All done in Discord — no restart needed. Three lists:
 
-- **🚫 Bad words** — always AI-checked, then tiered (🔴 high / 🟡 low):
+- **🚫 Bad words** — always Judge-checked, then tiered (🔴 high / 🟡 low):
   - `/tattletale badword add word:scam`
   - `/tattletale badword add word:slur channel:#serious notify:@Mods` (own channel + ping)
   - `remove` / `list` / `clear` as well.
-- **✅ Good words** — safe, notify-only, **no AI check** (green):
+- **✅ Good words** — safe, notify-only, **no Judge check** (green):
   - `/tattletale goodword add word:welcome channel:#welcomes notify:@Greeter`
   - `remove` / `list` / `clear` as well.
-- **🤖 AI words** — signal phrases that let the AI review other messages:
+- **🤖 Judge words** — signal phrases that let the Judge review other messages:
   `/tattletale judgewords add|remove|edit|list|clear`.
 
 `channel:` and `notify:` (a user **or** role to ping) are optional per word.
@@ -129,9 +129,9 @@ All settings are saved per-server and survive restarts automatically.
 
 ---
 
-## 6a. AI contextual detection (optional)
+## 6a. contextual judging (optional)
 
-The keyword list catches specific words you chose. AI detection is a second
+The keyword list catches specific words you chose. judging is a second
 layer that judges *intent and context* on messages generally — scams, phishing,
 harassment, hate, threats, unwanted sexual content, and spam worded to slip past
 a word list. The two work together.
@@ -144,20 +144,20 @@ a word list. The two work together.
 How it works and what it costs:
 - It requires an `ANTHROPIC_API_KEY` set on the host (Railway variable). Without
   one, enabling it returns a warning and nothing runs.
-- The AI only reviews a message when it contains a phrase from the **AI trigger
+- The Judge only reviews a message when it contains a phrase from the **Judge trigger
   list** (scam/harassment signals like `free nitro`, `http`, `kill yourself`).
   Everything else is ignored, so API calls stay low. The list has built-in
   defaults and is editable via `/tattletale judgewords …`; `clear` restores the
   defaults rather than emptying it. Identical messages are cached, and it uses a
   small, cheap model (Claude Haiku) with prompt caching — pennies on most servers.
-- A trigger only *starts* a review; the AI still judges intent, so an innocent
+- A trigger only *starts* a review; the Judge still judges intent, so an innocent
   message that merely contains a trigger phrase won't be alerted on.
-- When the AI flags a message at or above your **confidence threshold** (default
+- When the Judge flags a message at or above your **confidence threshold** (default
   60%), an alert with the category and a short reason is posted to your mod
   channel. It never deletes or punishes — same notify-only behavior as the rest
   of the bot.
 - **Confidence threshold** (`/tattletale judgethreshold value:0–1`): for each
-  screened message the AI returns how sure it is (0–1) that the message is
+  screened message the Judge returns how sure it is (0–1) that the message is
   abusive. Only messages scoring at or above your threshold trigger an alert.
   Lower it (e.g. `0.4`) to catch more borderline cases at the cost of more false
   alarms; raise it (e.g. `0.8`) to alert only on near-certain abuse. Default `0.6`.
