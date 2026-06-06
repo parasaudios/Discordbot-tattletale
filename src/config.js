@@ -22,16 +22,10 @@ try {
 // through in-Discord slash commands. No code edits or restarts are required to
 // change keywords, the alert channel, or any toggle.
 //
-// Shape:
-// {
-//   [guildId]: {
-//     alertChannelId: string | null,
-//     flaggedWords: string[],
-//     logDeletes: boolean,
-//     logEdits: boolean,
-//     logFlagged: boolean
-//   }
-// }
+// Shape (per guild): alertChannelId + per-tier channels, goodWords/badWords as
+// { word, channelId, notify }[], aiTriggers as string[], plus toggles
+// (logDeletes/logEdits/logBadWords), aiEnabled/aiThreshold, and allowedRoleIds.
+// Legacy flaggedWords/logFlagged are migrated to badWords/logBadWords on load.
 
 // Built-in scam/harassment signal words & phrases. The AI is only invoked on a
 // message that contains one of these (so API calls happen only when something
@@ -67,10 +61,15 @@ const DEFAULTS = {
   alertChannelHigh: null,
   alertChannelMedium: null,
   alertChannelLow: null,
-  flaggedWords: [],
+  // Word lists. Each entry is { word, channelId, notify } so a word can route to
+  // its own channel and ping its own user/role (null = fall back to defaults).
+  //   goodWords = safe words staff want a heads-up about; NO AI check (green).
+  //   badWords  = bad words; ALWAYS AI-checked so a severity tier is determined.
+  goodWords: [],
+  badWords: [],
   logDeletes: true,
   logEdits: true,
-  logFlagged: true,
+  logBadWords: true,
   // AI contextual scam/abuse detection (off by default; costs API usage).
   aiEnabled: false,
   // Minimum confidence (0–1) the AI must report before a message is flagged.
@@ -137,10 +136,26 @@ function persist() {
 
 // Returns a guild's settings, filling in any missing defaults. Defaults are
 // deep-cloned so each guild gets its own arrays (otherwise mutating one guild's
-// flaggedWords/aiTriggers would corrupt the shared defaults for every guild).
+// lists would corrupt the shared defaults for every guild).
 export function getGuild(guildId) {
-  settings[guildId] = { ...structuredClone(DEFAULTS), ...(settings[guildId] ?? {}) };
-  return settings[guildId];
+  const merged = { ...structuredClone(DEFAULTS), ...(settings[guildId] ?? {}) };
+
+  // Migrate legacy fields from older versions.
+  // flaggedWords (string[]) -> badWords ({ word, channelId, notify }[])
+  if (Array.isArray(merged.flaggedWords)) {
+    if (!merged.badWords?.length) {
+      merged.badWords = merged.flaggedWords.map((w) => ({ word: w, channelId: null, notify: null }));
+    }
+    delete merged.flaggedWords;
+  }
+  // logFlagged (bool) -> logBadWords
+  if (typeof merged.logFlagged === 'boolean') {
+    if (typeof (settings[guildId] ?? {}).logBadWords !== 'boolean') merged.logBadWords = merged.logFlagged;
+    delete merged.logFlagged;
+  }
+
+  settings[guildId] = merged;
+  return merged;
 }
 
 // Maps a tier name to the settings key that stores its channel.
@@ -171,43 +186,75 @@ export function channelForTier(guildId, tier) {
 }
 
 export function setToggle(guildId, key, value) {
-  // key is one of: logDeletes, logEdits, logFlagged
+  // key is one of: logDeletes, logEdits, logBadWords
   getGuild(guildId)[key] = value;
   persist();
 }
 
-// --- Flagged-word management (case-insensitive, stored lowercased) ---
+// --- Good / bad word management (case-insensitive, stored lowercased) ---
+// Each entry: { word, channelId, notify }. channelId/notify are optional
+// per-word overrides (alert channel + a user/role mention to ping).
 
-export function addWord(guildId, word) {
-  const g = getGuild(guildId);
+function addWordTo(list, word, channelId, notify) {
   const w = word.trim().toLowerCase();
   if (!w) return { ok: false, reason: 'empty' };
-  if (g.flaggedWords.includes(w)) return { ok: false, reason: 'exists' };
-  g.flaggedWords.push(w);
-  persist();
+  if (list.some((e) => e.word === w)) return { ok: false, reason: 'exists' };
+  list.push({ word: w, channelId: channelId || null, notify: notify || null });
   return { ok: true, word: w };
 }
 
-export function removeWord(guildId, word) {
-  const g = getGuild(guildId);
+function removeWordFrom(list, word) {
   const w = word.trim().toLowerCase();
-  const i = g.flaggedWords.indexOf(w);
+  const i = list.findIndex((e) => e.word === w);
   if (i === -1) return { ok: false, reason: 'missing' };
-  g.flaggedWords.splice(i, 1);
-  persist();
+  list.splice(i, 1);
   return { ok: true, word: w };
 }
 
-export function clearWords(guildId) {
+export function addBadWord(guildId, word, channelId, notify) {
   const g = getGuild(guildId);
-  const count = g.flaggedWords.length;
-  g.flaggedWords = [];
+  const r = addWordTo(g.badWords, word, channelId, notify);
+  if (r.ok) persist();
+  return r;
+}
+export function removeBadWord(guildId, word) {
+  const g = getGuild(guildId);
+  const r = removeWordFrom(g.badWords, word);
+  if (r.ok) persist();
+  return r;
+}
+export function clearBadWords(guildId) {
+  const g = getGuild(guildId);
+  const n = g.badWords.length;
+  g.badWords = [];
   persist();
-  return count;
+  return n;
+}
+export function listBadWords(guildId) {
+  return getGuild(guildId).badWords.map((e) => ({ ...e }));
 }
 
-export function listWords(guildId) {
-  return [...getGuild(guildId).flaggedWords];
+export function addGoodWord(guildId, word, channelId, notify) {
+  const g = getGuild(guildId);
+  const r = addWordTo(g.goodWords, word, channelId, notify);
+  if (r.ok) persist();
+  return r;
+}
+export function removeGoodWord(guildId, word) {
+  const g = getGuild(guildId);
+  const r = removeWordFrom(g.goodWords, word);
+  if (r.ok) persist();
+  return r;
+}
+export function clearGoodWords(guildId) {
+  const g = getGuild(guildId);
+  const n = g.goodWords.length;
+  g.goodWords = [];
+  persist();
+  return n;
+}
+export function listGoodWords(guildId) {
+  return getGuild(guildId).goodWords.map((e) => ({ ...e }));
 }
 
 // --- AI detection toggle ---

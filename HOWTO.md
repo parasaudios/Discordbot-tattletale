@@ -24,7 +24,7 @@ punishes anyone.
 - [Part B — In-Discord commands](#part-b--in-discord-commands)
   - [Command reference](#command-reference)
 - [Part C — First-time setup in 3 steps](#part-c--first-time-setup-in-3-steps)
-- [Part D — Managing flagged words (with examples)](#part-d--managing-flagged-words-with-examples)
+- [Part D — Managing word lists (good / bad / AI)](#part-d--managing-word-lists-good--bad--ai)
 - [Part E — Toggles: turning logging on and off](#part-e--toggles-turning-logging-on-and-off)
 - [Part F — AI contextual detection](#part-f--ai-contextual-detection)
 - [Part G — Restricting who can use the bot](#part-g--restricting-who-can-use-the-bot)
@@ -40,20 +40,25 @@ punishes anyone.
 | 🗑️ **Message deleted** | A user's message is deleted | ON |
 | 🧹 **Bulk delete** | Many messages purged at once (mod tools, ban-with-cleanup) | ON (follows the delete toggle) |
 | ✏️ **Message edited** | A user edits a message (before/after shown) | ON |
-| 🔴🟠🟡 **Content alert** | A flagged word and/or the AI flags a message — colour-coded by severity (see below) | flagged ON, AI OFF |
+| ✅🔴🟠🟡 **Content alert** | A good/bad word or the AI flags a message — colour-coded (see below) | bad words ON, AI OFF |
 
-Content alerts come in **three severity tiers**, each a different colour, and
-each can be routed to its own channel:
+There are **three word lists** (manage them in Part D):
+- **✅ Good words** — safe words you just want a heads-up about. **No AI check.** Green.
+- **🚫 Bad words** — bad words. **Always AI-checked** so a severity tier is decided.
+- **🤖 AI words** — scam/harassment signal phrases that let the AI review *other* messages.
 
-| Tier | Colour | When | 
+Content alerts are **colour-coded by severity**, and each can route to its own channel:
+
+| Tier | Colour | When |
 |------|--------|------|
-| 🔴 **High** | red | A flagged word **and** the AI both judge it harmful |
-| 🟠 **Medium** | orange | The AI judges it harmful (no flagged word) |
-| 🟡 **Low** | yellow | A flagged word and/or AI-reviewed, but **not** confirmed harmful (a heads-up) |
+| ✅ **Good** | green | A good word was used (safe, FYI) — no AI |
+| 🔴 **High** | red | A **bad word** *and* the AI both judge it harmful |
+| 🟠 **Medium** | orange | The AI judges it harmful (caught via an AI word, no bad word) |
+| 🟡 **Low** | yellow | A bad word and/or AI-reviewed, but **not** confirmed harmful (a heads-up) |
 
-Every alert is posted to the **mod-alert channel(s) you pick** — never the
-channel where the original message appeared. By default everything goes to one
-channel; you can split the tiers across channels with `/tattletale setchannel … tier:…`.
+Every alert goes to the **channel(s) you pick** — never where the message appeared.
+By default everything shares one channel; you can split by tier
+(`/tattletale setchannel … tier:…`) **or per word** (`badword add … channel:#x`).
 
 ---
 
@@ -133,11 +138,11 @@ use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that
 | Command | What it does |
 |---------|--------------|
 | `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that severity there. |
-| `/tattletale addword word:<text>` | Add a word or phrase to the flagged list. |
-| `/tattletale removeword word:<text>` | Remove one word/phrase from the list. |
-| `/tattletale listwords` | Show every flagged word. |
-| `/tattletale clearwords` | Remove **all** flagged words at once. |
-| `/tattletale toggle feature:<deletes\|edits\|flagged> enabled:<true\|false>` | Turn a logging feature on or off. |
+| `/tattletale badword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **bad word** (AI-checked → tiered). Optional per-word channel + ping. |
+| `/tattletale badword remove\|list\|clear` | Remove one / show all / clear all bad words. |
+| `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **good word** (safe, notify-only, **no AI**). Optional per-word channel + ping. |
+| `/tattletale goodword remove\|list\|clear` | Remove one / show all / clear all good words. |
+| `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
 | `/tattletale ai enabled:<true\|false>` | Turn AI contextual detection on or off. |
 | `/tattletale aithreshold value:<0–1>` | Set how confident the AI must be before it alerts. |
 | `/tattletale aiwords add phrase:<text>` | Add a scam/harassment phrase that triggers AI review. |
@@ -181,10 +186,10 @@ default, just set it to your default channel again.
    > If the bot is missing permissions in that channel, the command warns you so
    > alerts don't silently disappear.
 
-2. **Add a few flagged words** (optional):
+2. **Add a few bad words** (optional):
    ```
-   /tattletale addword word:scam
-   /tattletale addword word:free nitro
+   /tattletale badword add word:scam
+   /tattletale badword add word:slur channel:#serious notify:@Mods
    ```
 
 3. **Check your work:**
@@ -196,64 +201,54 @@ That's it. Delete and edit logging are already on by default.
 
 ---
 
-## Part D — Managing flagged words (with examples)
+## Part D — Managing word lists (good / bad / AI)
 
-Matching is **evasion-resistant** and **substring-based**, so a single entry
-catches the obvious dodges people use. Adding `poop` flags all of these:
+There are three lists, each with its own job:
 
-- Case variations — `Poop`, `POOP`
-- Letter-stretching — `pooooop`, `Poooooop`
-- Leetspeak / symbol swaps — `po0p`, `p00p`
-- Inserted separators — `p o o p`, `p.o.o.p`, `p-o-o-p`
-- As part of a bigger word — `poops`, `poopy`, "help i pooped"
+| List | AI check? | Colour | Use it for | Manage with |
+|------|-----------|--------|-----------|-------------|
+| **🚫 Bad words** | ✅ always | 🔴/🟡 | Words that are bad — the AI then decides *how* bad | `/tattletale badword …` |
+| **✅ Good words** | ❌ never | ✅ green | "Safe" words you just want to be notified about | `/tattletale goodword …` |
+| **🤖 AI words** | (gates AI) | 🟠/🟡 | Signal phrases that let the AI review *other* messages | `/tattletale aiwords …` |
 
-It does **not** match unrelated words that merely share letters (e.g. `popular`,
-`lollipop`). Phrases work too, and words are stored lowercased.
+**Matching** is the same for all three: **evasion-resistant and substring-based**.
+Adding `poop` catches `Poop`, `pooooop`, `po0p`, `p o o p`, `poops`, "i pooped" —
+but not unrelated words like `popular`. Phrases work; entries are stored lowercased.
 
-> **Heads up — this can over-match.** Because it matches as a substring, a short
-> entry will also flag longer words that contain it. Prefer specific entries
-> (e.g. a full slur rather than a 3-letter fragment) to avoid false alarms.
+> **Heads up — substring matching can over-match.** A short entry also flags
+> longer words containing it. Prefer specific entries (a full word/slur, not a
+> 2–3 letter fragment).
 
-**Add a single word**
+### Bad words (AI-checked, tiered)
 ```
-/tattletale addword word:phishing
+/tattletale badword add word:scam                         # plain bad word
+/tattletale badword add word:slur channel:#serious notify:@Mods   # own channel + ping
+/tattletale badword remove word:scam
+/tattletale badword list
+/tattletale badword clear
 ```
-→ ✅ Added `phishing` to the flagged list.
+When a bad word is used, the AI judges intent → 🔴 **High** if it confirms harm,
+🟡 **Low** if it looks harmless. Alerts go to that word's `channel` (if set),
+otherwise the tier/default channel, and ping its `notify` user/role if set.
 
-**Add a multi-word phrase** (everything after `word:` is one entry)
+### Good words (safe, no AI)
 ```
-/tattletale addword word:click this link
+/tattletale goodword add word:welcome channel:#welcomes notify:@Greeter
+/tattletale goodword remove word:welcome
+/tattletale goodword list
+/tattletale goodword clear
 ```
-→ ✅ Added `click this link` to the flagged list.
+Good words **never** hit the AI. When one is used you get a ✅ green "safe"
+notice (optionally in its own channel / pinging someone). Handy for tracking a
+keyword without treating it as an offense.
 
-**Try to add a duplicate**
-```
-/tattletale addword word:phishing
-```
-→ That word is already on the list.
+> **Per-word channel & ping:** both `channel:` and `notify:` are optional on
+> `badword add` / `goodword add`. `notify:` accepts a **user or a role** and
+> pings them when that word fires. Leave them off to use the default channel.
 
-**Remove one word**
-```
-/tattletale removeword word:phishing
-```
-→ ✅ Removed `phishing` from the flagged list.
-
-**See the whole list**
-```
-/tattletale listwords
-```
-→ **Flagged words (3):** `scam`, `free nitro`, `click this link`
-
-**Wipe the entire list** (irreversible — it tells you how many it cleared)
-```
-/tattletale clearwords
-```
-→ ✅ Cleared 3 flagged word(s).
-
-> **What an alert looks like:** when someone posts a message matching a flagged
-> word, the mod channel gets a 🚩 embed with the user, the channel, the flagged
-> word that matched, the full message, and a jump link. Edits are re-scanned too,
-> so sneaking a banned word in *after* posting still triggers an alert.
+> **What an alert looks like:** the mod channel gets a colour-coded embed with the
+> user, channel, the matched word, the AI verdict (for bad words), the message,
+> and a jump link. Edits are re-scanned, so words added *after* posting still fire.
 
 ---
 
@@ -266,29 +261,26 @@ Three independent switches, each on by default. Use `enabled:true` or
 |---------------|----------|
 | `deletes` | 🗑️ deleted-message and 🧹 bulk-delete alerts |
 | `edits` | ✏️ edited-message alerts |
-| `flagged` | 🚩 flagged-word alerts |
+| `badwords` | 🚫 bad-word alerts |
 
 **Examples**
 ```
-/tattletale toggle feature:deletes enabled:false     # stop logging deletions
-/tattletale toggle feature:edits enabled:true        # (re)enable edit logging
-/tattletale toggle feature:flagged enabled:false     # pause keyword alerts
+/tattletale toggle feature:deletes enabled:false      # stop logging deletions
+/tattletale toggle feature:edits enabled:true         # (re)enable edit logging
+/tattletale toggle feature:badwords enabled:false     # pause bad-word alerts
 ```
 
-> Turning off `flagged` only stops the **keyword** alerts; your saved word list
-> is kept and resumes when you turn it back on. AI detection is a separate switch
-> (see below).
+> Turning off `badwords` only pauses bad-word alerts; your saved list is kept and
+> resumes when you turn it back on. Good words and AI detection are separate.
 
 ---
 
 ## Part F — AI contextual detection
 
-The keyword list catches *specific words you chose*. AI detection is the second
-layer that judges **intent and context** on messages generally — catching
-scams, phishing, harassment, hate, threats, unwanted sexual content, and spam
-that are worded to slip past a word list. The two work **together**: the keyword
-filter flags your banned words, and the AI independently reviews messages for
-anything harmful.
+AI detection judges **intent and context** — catching scams, phishing,
+harassment, hate, threats, unwanted sexual content, and spam. It runs when a
+message contains a **bad word** (always) or an **AI word** (signal phrase), then
+decides severity. **Good words never trigger the AI.**
 
 **Requirements:** an `ANTHROPIC_API_KEY` set on the host (Part A). Enabling it
 without a key returns a warning and nothing runs.
@@ -320,7 +312,7 @@ is fully editable:
 /tattletale aiwords clear                          # restore the built-in defaults
 ```
 
-- Triggers are matched with the same evasion-resistant logic as flagged words
+- Triggers are matched with the same evasion-resistant logic as bad words
   (so `fr33 n1tro` still trips `free nitro`).
 - A trigger only *starts* an AI review — the AI still judges intent, so an
   innocent message that merely contains a trigger phrase won't be alerted on.
@@ -387,10 +379,11 @@ through the commands above (no manual editing needed).
 |---------|---------|----------|
 | Alert channel (default/fallback) | *none* (must be set) | `/tattletale setchannel` |
 | Per-tier channels (high/medium/low) | fall back to default | `/tattletale setchannel … tier:high\|medium\|low` |
-| Flagged words | empty list | `/tattletale addword` / `removeword` / `clearwords` |
+| Bad words (AI-checked) | empty list | `/tattletale badword add` / `remove` / `list` / `clear` |
+| Good words (no AI, safe) | empty list | `/tattletale goodword add` / `remove` / `list` / `clear` |
 | Log deletes (incl. bulk) | **ON** | `/tattletale toggle feature:deletes` |
 | Log edits | **ON** | `/tattletale toggle feature:edits` |
-| Log flagged words | **ON** | `/tattletale toggle feature:flagged` |
+| Log bad words | **ON** | `/tattletale toggle feature:badwords` |
 | AI detection | **OFF** | `/tattletale ai` |
 | AI confidence threshold | **0.6** | `/tattletale aithreshold` |
 | AI trigger phrases | built-in default set | `/tattletale aiwords add` / `remove` / `edit` / `list` / `clear` |

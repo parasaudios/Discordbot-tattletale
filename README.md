@@ -3,10 +3,10 @@
 A [discord.js](https://discord.js.org) v14 bot that:
 
 - Logs **deleted** and **edited** messages
-- **Alerts mods to flagged words** — posted to a dedicated alert channel you choose,
+- **Alerts mods to bad words** (AI-checked) and **good words** (safe) — posted to a channel you choose,
   **not** the channel where the word was used
 
-All events (deletes, edits, flagged words) are sent to a single mod-alert channel
+All events (deletes, edits, good/bad words, AI catches) are sent to the mod-alert channel(s)
 that a server admin selects with `/tattletale setchannel`.
 
 ## Setup
@@ -45,7 +45,7 @@ Quick start:
 
 ```
 /tattletale setchannel channel:#mod-alerts   # where alerts go
-/tattletale addword word:scam                # flag a word
+/tattletale badword add word:scam            # flag a bad word
 /tattletale settings                         # view current config
 ```
 

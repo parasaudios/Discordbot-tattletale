@@ -32,20 +32,42 @@ const command = new SlashCommandBuilder()
             { name: 'Medium — AI-only harmful', value: 'medium' },
             { name: 'Low — flagged but harmless', value: 'low' },
           )))
-  .addSubcommand((s) =>
-    s.setName('addword')
-      .setDescription('Add a word to the flagged list.')
-      .addStringOption((o) =>
-        o.setName('word').setDescription('The word or phrase to flag').setRequired(true)))
-  .addSubcommand((s) =>
-    s.setName('removeword')
-      .setDescription('Remove a word from the flagged list.')
-      .addStringOption((o) =>
-        o.setName('word').setDescription('The word or phrase to remove').setRequired(true)))
-  .addSubcommand((s) =>
-    s.setName('listwords').setDescription('Show all flagged words.'))
-  .addSubcommand((s) =>
-    s.setName('clearwords').setDescription('Remove ALL flagged words.'))
+  .addSubcommandGroup((g) =>
+    g.setName('badword')
+      .setDescription('Bad words: AI-checked & tiered. Optional per-word channel + ping.')
+      .addSubcommand((s) =>
+        s.setName('add')
+          .setDescription('Add a bad word (AI-checked for severity).')
+          .addStringOption((o) =>
+            o.setName('word').setDescription('The word or phrase to flag as bad').setRequired(true))
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Channel for this word\'s alerts (else default)').addChannelTypes(ChannelType.GuildText))
+          .addMentionableOption((o) =>
+            o.setName('notify').setDescription('User or role to ping on this word\'s alerts')))
+      .addSubcommand((s) =>
+        s.setName('remove')
+          .setDescription('Remove a bad word.')
+          .addStringOption((o) => o.setName('word').setDescription('The word to remove').setRequired(true)))
+      .addSubcommand((s) => s.setName('list').setDescription('Show all bad words.'))
+      .addSubcommand((s) => s.setName('clear').setDescription('Remove ALL bad words.')))
+  .addSubcommandGroup((g) =>
+    g.setName('goodword')
+      .setDescription('Good words: safe notify-only, NO AI check. Optional per-word channel + ping.')
+      .addSubcommand((s) =>
+        s.setName('add')
+          .setDescription('Add a good (safe) word to be notified about.')
+          .addStringOption((o) =>
+            o.setName('word').setDescription('The word or phrase to watch for').setRequired(true))
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Channel for this word\'s alerts (else default)').addChannelTypes(ChannelType.GuildText))
+          .addMentionableOption((o) =>
+            o.setName('notify').setDescription('User or role to ping on this word\'s alerts')))
+      .addSubcommand((s) =>
+        s.setName('remove')
+          .setDescription('Remove a good word.')
+          .addStringOption((o) => o.setName('word').setDescription('The word to remove').setRequired(true)))
+      .addSubcommand((s) => s.setName('list').setDescription('Show all good words.'))
+      .addSubcommand((s) => s.setName('clear').setDescription('Remove ALL good words.')))
   .addSubcommand((s) =>
     s.setName('toggle')
       .setDescription('Turn a logging feature on or off.')
@@ -56,7 +78,7 @@ const command = new SlashCommandBuilder()
           .addChoices(
             { name: 'Deleted messages', value: 'deletes' },
             { name: 'Edited messages', value: 'edits' },
-            { name: 'Flagged words', value: 'flagged' },
+            { name: 'Bad words', value: 'badwords' },
           ))
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))

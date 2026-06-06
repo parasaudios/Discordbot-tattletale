@@ -17,15 +17,17 @@ Tattletale reports three things to a single **mod-alert channel** you choose:
   ban-with-message-cleanup) are reported as a single summary too.
 - **Edited messages** — the before/after text with a jump link. Edited content
   is re-scanned, so a banned word or scam link added *after* posting is still caught.
-- **Flagged content** — when a flagged word and/or the AI flags a message.
-  These come in three colour-coded severity tiers:
-  - 🔴 **High** (red) — a flagged word **and** the AI both judge it harmful.
-  - 🟠 **Medium** (orange) — the AI judges it harmful (no flagged word).
-  - 🟡 **Low** (yellow) — flagged/AI-reviewed but **not** confirmed harmful (a heads-up).
+- **Word/AI alerts** — from three lists (**good words**, **bad words**, **AI
+  words**), colour-coded by severity:
+  - ✅ **Good** (green) — a good word was used; safe FYI, **no AI check**.
+  - 🔴 **High** (red) — a **bad word** *and* the AI both judge it harmful.
+  - 🟠 **Medium** (orange) — the AI judges it harmful (via an AI word, no bad word).
+  - 🟡 **Low** (yellow) — a bad word/AI-reviewed but **not** confirmed harmful.
 
-Every alert goes to the **alert channel(s) you pick** — never the channel where
-the message appeared. By default all alerts share one channel; you can route each
-severity tier to its own channel with `/tattletale setchannel … tier:…`.
+Every alert goes to the **channel(s) you pick** — never the channel where the
+message appeared. By default all alerts share one channel; you can route by
+severity tier (`/tattletale setchannel … tier:…`) **or per word**
+(`/tattletale badword add … channel:#x`), and ping a user/role with `notify:`.
 
 ---
 
@@ -37,9 +39,9 @@ severity tier to its own channel with `/tattletale setchannel … tier:…`.
    ```
    /tattletale setchannel channel:#mod-alerts
    ```
-2. **Add some flagged words** (optional):
+2. **Add some bad words** (optional):
    ```
-   /tattletale addword word:scam
+   /tattletale badword add word:scam
    ```
 
 That's it. Delete and edit logging are on by default.
@@ -71,11 +73,9 @@ permission. Responses are private (only you see them).
 | Command | What it does |
 |---------|--------------|
 | `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set the alert channel. No `tier` = default for all; a `tier` routes that severity to its own channel. |
-| `/tattletale addword word:<text>` | Add a word or phrase to the flagged list. |
-| `/tattletale removeword word:<text>` | Remove a word from the list. |
-| `/tattletale listwords` | Show all flagged words. |
-| `/tattletale clearwords` | Remove **all** flagged words. |
-| `/tattletale toggle feature:<deletes\|edits\|flagged> enabled:<true\|false>` | Turn a logging feature on or off. |
+| `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (AI-checked → tiered). `add` takes optional `channel:` + `notify:` (user/role) per word. |
+| `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no AI**). Same optional `channel:` + `notify:`. |
+| `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
 | `/tattletale ai enabled:<true\|false>` | Turn AI contextual scam/abuse detection on or off (needs an API key on the host). |
 | `/tattletale aithreshold value:<0–1>` | How sure the AI must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
 | `/tattletale aiwords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger AI review. `clear` restores the built-in defaults. |
@@ -85,17 +85,23 @@ permission. Responses are private (only you see them).
 
 ---
 
-## 5. Managing flagged keywords
+## 5. Managing word lists (good / bad / AI)
 
-All done in Discord — no restart needed.
+All done in Discord — no restart needed. Three lists:
 
-- **Add:** `/tattletale addword word:scam`
-- **Add a phrase:** `/tattletale addword word:free nitro`
-- **Remove:** `/tattletale removeword word:scam`
-- **See the list:** `/tattletale listwords`
-- **Wipe the list:** `/tattletale clearwords`
+- **🚫 Bad words** — always AI-checked, then tiered (🔴 high / 🟡 low):
+  - `/tattletale badword add word:scam`
+  - `/tattletale badword add word:slur channel:#serious notify:@Mods` (own channel + ping)
+  - `remove` / `list` / `clear` as well.
+- **✅ Good words** — safe, notify-only, **no AI check** (green):
+  - `/tattletale goodword add word:welcome channel:#welcomes notify:@Greeter`
+  - `remove` / `list` / `clear` as well.
+- **🤖 AI words** — signal phrases that let the AI review other messages:
+  `/tattletale aiwords add|remove|edit|list|clear`.
 
-How matching works (evasion-resistant):
+`channel:` and `notify:` (a user **or** role to ping) are optional per word.
+
+How matching works (evasion-resistant, all lists):
 
 - **Case-insensitive** — `Scam`, `SCAM`, and `scam` all match.
 - **Beats common dodges** — one entry catches letter-stretching (`scaaaam`),
@@ -115,7 +121,7 @@ Turn any feature on or off at any time:
 
 - Stop logging deletes: `/tattletale toggle feature:deletes enabled:false`
 - Re-enable edits: `/tattletale toggle feature:edits enabled:true`
-- Pause keyword alerts: `/tattletale toggle feature:flagged enabled:false`
+- Pause bad-word alerts: `/tattletale toggle feature:badwords enabled:false`
 
 Check everything at once with `/tattletale settings`.
 
@@ -176,10 +182,10 @@ TattleTaleBot → Commands**, which is enforced by Discord itself.
 | I want to… | Command |
 |------------|---------|
 | Choose / change the alert channel | `/tattletale setchannel channel:<#channel>` |
-| Add a flagged word | `/tattletale addword word:<text>` |
-| Remove a flagged word | `/tattletale removeword word:<text>` |
-| See flagged words | `/tattletale listwords` |
-| Remove all flagged words | `/tattletale clearwords` |
+| Add a bad word | `/tattletale badword add word:<text>` |
+| Remove a bad word | `/tattletale badword remove word:<text>` |
+| See bad words | `/tattletale badword list` |
+| Add a good word | `/tattletale goodword add word:<text>` |
 | Turn a feature on/off | `/tattletale toggle feature:<...> enabled:<...>` |
 | View current config | `/tattletale settings` |
 

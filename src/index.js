@@ -13,10 +13,14 @@ import {
   setTierChannel,
   channelForTier,
   setToggle,
-  addWord,
-  removeWord,
-  clearWords,
-  listWords,
+  addBadWord,
+  removeBadWord,
+  clearBadWords,
+  listBadWords,
+  addGoodWord,
+  removeGoodWord,
+  clearGoodWords,
+  listGoodWords,
   setAiEnabled,
   setAiThreshold,
   storageInfo,
@@ -70,13 +74,16 @@ function normalize(text) {
 // Returns the configured flagged word the message matches (substring, after
 // normalization), or null. Recomputed per message so word-list edits take
 // effect immediately, no restart.
-function findFlaggedWord(content, words) {
-  if (!words.length) return null;
+// Entries may be plain strings (aiTriggers) or { word, channelId, notify }
+// objects (good/bad words). Returns the matching entry (string or object) or null.
+function findMatch(content, entries) {
+  if (!entries.length) return null;
   const haystack = normalize(content);
   if (!haystack) return null;
-  for (const word of words) {
+  for (const e of entries) {
+    const word = typeof e === 'string' ? e : e.word;
     const needle = normalize(word);
-    if (needle && haystack.includes(needle)) return word;
+    if (needle && haystack.includes(needle)) return e;
   }
   return null;
 }
@@ -87,21 +94,28 @@ function truncate(text, max = 1024) {
 }
 
 // Post an embed to a specific channel id (defaults to the guild's main alert
-// channel when no id is given — used by the delete/edit activity logs).
-async function sendAlert(guild, embed, channelId) {
+// channel when no id is given). `notify` is an optional mention string
+// (<@user> or <@&role>) to ping alongside the alert.
+async function sendAlert(guild, embed, channelId, notify) {
   const target = channelId ?? getGuild(guild.id).alertChannelId;
   if (!target) return;
   const channel = guild.channels.cache.get(target)
     ?? (await guild.channels.fetch(target).catch(() => null));
   if (!channel || !channel.isTextBased()) return;
-  await channel.send({ embeds: [embed] }).catch(() => null);
+  const payload = { embeds: [embed] };
+  if (notify) {
+    payload.content = notify;
+    payload.allowedMentions = { parse: ['users', 'roles'] };
+  }
+  await channel.send(payload).catch(() => null);
 }
 
 // Severity tiers, their colour, and a label for the alert title.
 const TIERS = {
-  high: { color: 0xED4245, label: '🔴 High alert — harmful (flagged word + AI confirmed)' },
+  high: { color: 0xED4245, label: '🔴 High alert — bad word + AI confirmed harmful' },
   medium: { color: 0xE67E22, label: '🟠 Warning — AI flagged as harmful' },
   low: { color: 0xF1C40F, label: '🟡 Notice — flagged but likely harmless' },
+  good: { color: 0x57F287, label: '✅ Good word used (safe)' },
 };
 
 client.once(Events.ClientReady, (c) => {
@@ -117,41 +131,56 @@ async function screenMessage(message, origin = 'posted') {
   const settings = getGuild(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
-  // Layer 1 — keyword filter (only if logFlagged is on and words exist).
-  const matchedWord = settings.logFlagged
-    ? findFlaggedWord(message.content, settings.flaggedWords)
-    : null;
-
-  // Layer 2 — AI intent analysis, gated by the trigger list so API calls only
-  // happen when a scam/harassment signal is present. classifyMessage() may
-  // return null on error/no-key (meaning "couldn't assess", not "harmless").
-  let aiResult = null;
-  const aiTriggered = settings.aiEnabled
-    && Boolean(findFlaggedWord(message.content, settings.aiTriggers));
-  if (aiTriggered) aiResult = await classifyMessage(message.content);
-
-  const aiHarmful = Boolean(aiResult?.flag && aiResult.confidence >= settings.aiThreshold);
-  const aiCleared = Boolean(aiResult && !aiHarmful); // AI ran and judged it harmless
-
-  // Nothing actionable → no alert.
-  if (!matchedWord && !aiHarmful && !aiCleared) return;
-
-  // Decide severity tier:
-  //   high   = the keyword filter AND the AI both say it's harmful
-  //   medium = the AI says it's harmful (no flagged word)
-  //   low    = flagged word and/or AI-reviewed, but not confirmed harmful
-  let tier;
-  if (matchedWord && aiHarmful) tier = 'high';
-  else if (aiHarmful) tier = 'medium';
-  else tier = 'low';
-
-  const fields = [
+  const baseFields = () => ([
     { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
     { name: 'Channel', value: `${message.channel}`, inline: true },
-  ];
-  if (matchedWord) {
-    fields.push({ name: 'Flagged word', value: `\`${matchedWord}\``, inline: true });
+  ]);
+
+  // --- Good words: safe, notify-only, NO AI check (green). ---
+  const goodHit = findMatch(message.content, settings.goodWords);
+  if (goodHit) {
+    const embed = new EmbedBuilder()
+      .setTitle(`${TIERS.good.label}${editedNote}`)
+      .setColor(TIERS.good.color)
+      .addFields(
+        ...baseFields(),
+        { name: 'Good word', value: `\`${goodHit.word}\``, inline: true },
+        { name: 'Message', value: truncate(message.content) },
+        { name: 'Jump', value: `[Go to message](${message.url})` },
+      )
+      .setTimestamp(message.createdAt);
+    await sendAlert(message.guild, embed, goodHit.channelId ?? settings.alertChannelId, goodHit.notify);
   }
+
+  // --- Bad words: ALWAYS AI-checked so a severity tier can be determined. ---
+  const badHit = settings.logBadWords ? findMatch(message.content, settings.badWords) : null;
+
+  // The AI runs when a bad word is present, OR (no bad word) when an AI-trigger
+  // phrase is present. Good-word-only messages never reach the AI.
+  let aiResult = null;
+  if (settings.aiEnabled) {
+    if (badHit) {
+      aiResult = await classifyMessage(message.content);
+    } else if (findMatch(message.content, settings.aiTriggers)) {
+      aiResult = await classifyMessage(message.content);
+    }
+  }
+  const aiHarmful = Boolean(aiResult?.flag && aiResult.confidence >= settings.aiThreshold);
+  const aiCleared = Boolean(aiResult && !aiHarmful);
+
+  // Decide whether to emit a severity (bad/AI) alert, and which tier.
+  //   high   = bad word AND AI confirmed harmful
+  //   medium = AI confirmed harmful with no bad word (caught via AI trigger)
+  //   low    = bad word but not confirmed harmful, OR an AI-trigger msg cleared as harmless
+  let tier = null;
+  if (badHit && aiHarmful) tier = 'high';
+  else if (aiHarmful) tier = 'medium';
+  else if (badHit) tier = 'low';
+  else if (aiCleared) tier = 'low';
+  if (!tier) return; // nothing severity-worthy
+
+  const fields = baseFields();
+  if (badHit) fields.push({ name: 'Bad word', value: `\`${badHit.word}\``, inline: true });
   if (aiResult) {
     const verdict = aiHarmful
       ? `${aiResult.category} (${Math.round(aiResult.confidence * 100)}%)`
@@ -170,7 +199,10 @@ async function screenMessage(message, origin = 'posted') {
     .addFields(fields)
     .setTimestamp(message.createdAt);
 
-  await sendAlert(message.guild, embed, channelForTier(message.guild.id, tier));
+  // A bad word routes to its own channel/ping if set; otherwise fall back to the
+  // tier channel (then the default). AI-only catches use the tier channel.
+  const channelId = badHit?.channelId ?? channelForTier(message.guild.id, tier);
+  await sendAlert(message.guild, embed, channelId, badHit?.notify);
 }
 
 // --- Flagged-word scanning + AI contextual detection ---
@@ -331,6 +363,55 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
 
+    // --- Good / bad word management: /tattletale <goodword|badword> <add|remove|list|clear> ---
+    if (group === 'badword' || group === 'goodword') {
+      const isBad = group === 'badword';
+      const fns = isBad
+        ? { add: addBadWord, remove: removeBadWord, clear: clearBadWords, list: listBadWords }
+        : { add: addGoodWord, remove: removeGoodWord, clear: clearGoodWords, list: listGoodWords };
+      const label = isBad ? 'bad' : 'good';
+      const Label = isBad ? 'Bad' : 'Good';
+      const fmt = (e) => {
+        const extra = [];
+        if (e.channelId) extra.push(`→ <#${e.channelId}>`);
+        if (e.notify) extra.push(`pings ${e.notify}`);
+        return `\`${e.word}\`${extra.length ? ` (${extra.join(', ')})` : ''}`;
+      };
+      switch (sub) {
+        case 'add': {
+          const word = interaction.options.getString('word');
+          const channel = interaction.options.getChannel('channel');
+          if (channel && !channel.isTextBased()) return reply(interaction, 'Please choose a text channel.');
+          const mentionable = interaction.options.getMentionable('notify');
+          const notify = mentionable ? mentionable.toString() : null;
+          const r = fns.add(guildId, word, channel?.id ?? null, notify);
+          if (!r.ok && r.reason === 'exists') return reply(interaction, `That word is already on the ${label}-word list.`);
+          if (!r.ok) return reply(interaction, 'That word is empty or invalid.');
+          let m = `✅ Added \`${r.word}\` to the **${label}-word** list.`;
+          if (channel) m += ` Alerts → ${channel}.`;
+          if (notify) m += ` Pings ${notify}.`;
+          if (isBad && notify) m += '';
+          return reply(interaction, m);
+        }
+        case 'remove': {
+          const r = fns.remove(guildId, interaction.options.getString('word'));
+          if (!r.ok) return reply(interaction, `That word is not on the ${label}-word list.`);
+          return reply(interaction, `✅ Removed \`${r.word}\` from the ${label}-word list.`);
+        }
+        case 'clear': {
+          const n = fns.clear(guildId);
+          return reply(interaction, `✅ Cleared ${n} ${label} word(s).`);
+        }
+        case 'list': {
+          const items = fns.list(guildId);
+          if (!items.length) return reply(interaction, `No ${label} words set. Add one with \`/tattletale ${label}word add\`.`);
+          return reply(interaction, truncate(`**${Label} words (${items.length}):**\n${items.map(fmt).join('\n')}`, 1900));
+        }
+        default:
+          return reply(interaction, `Unknown ${label}word subcommand.`);
+      }
+    }
+
     switch (sub) {
       case 'setchannel': {
         const channel = interaction.options.getChannel('channel');
@@ -361,30 +442,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
         return reply(interaction, msg);
       }
-      case 'addword': {
-        const r = addWord(guildId, interaction.options.getString('word'));
-        if (!r.ok && r.reason === 'exists') return reply(interaction, 'That word is already on the list.');
-        if (!r.ok) return reply(interaction, 'That word is empty or invalid.');
-        return reply(interaction, `✅ Added \`${r.word}\` to the flagged list.`);
-      }
-      case 'removeword': {
-        const r = removeWord(guildId, interaction.options.getString('word'));
-        if (!r.ok) return reply(interaction, 'That word is not on the list.');
-        return reply(interaction, `✅ Removed \`${r.word}\` from the flagged list.`);
-      }
-      case 'clearwords': {
-        const count = clearWords(guildId);
-        return reply(interaction, `✅ Cleared ${count} flagged word(s).`);
-      }
-      case 'listwords': {
-        const words = listWords(guildId);
-        if (!words.length) return reply(interaction, 'No flagged words set. Add one with `/tattletale addword`.');
-        return reply(interaction, `**Flagged words (${words.length}):**\n${words.map((w) => `\`${w}\``).join(', ')}`);
-      }
       case 'toggle': {
         const feature = interaction.options.getString('feature');
         const enabled = interaction.options.getBoolean('enabled');
-        const map = { deletes: 'logDeletes', edits: 'logEdits', flagged: 'logFlagged' };
+        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords' };
         setToggle(guildId, map[feature], enabled);
         return reply(interaction, `✅ Logging for **${feature}** is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
@@ -436,11 +497,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `• 🟡 Low/harmless alerts: ${tierCh(s.alertChannelLow)}`,
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
-            `Log flagged words: ${s.logFlagged ? 'ON' : 'OFF'}`,
+            `Log bad words: ${s.logBadWords ? 'ON' : 'OFF'}`,
             `AI detection: ${s.aiEnabled ? 'ON' : 'OFF'}`,
             `AI threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
-            `AI trigger phrases: ${s.aiTriggers.length}`,
-            `Flagged words: ${s.flaggedWords.length}`,
+            `✅ Good words: ${s.goodWords.length} · 🚫 Bad words: ${s.badWords.length} · 🤖 AI triggers: ${s.aiTriggers.length}`,
             `Command access: ${roles}`,
             `Storage: ${persistence}`,
           ].join('\n'),
