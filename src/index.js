@@ -37,6 +37,13 @@ import {
 } from './config.js';
 import { classifyMessage } from './ai.js';
 
+// Timestamp every log line so output can be correlated to the exact moment the
+// host reports a crash/restart. Installed before anything else logs.
+for (const method of ['log', 'warn', 'error']) {
+  const original = console[method].bind(console);
+  console[method] = (...args) => original(`[${new Date().toISOString()}]`, ...args);
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -537,8 +544,14 @@ client.on(Events.ShardError, (err, id) => console.error(`Gateway: shard ${id} er
 // reconnects, and a single bad event, rejected promise, or uncaught throw
 // shouldn't crash the whole bot (which the host would report as a failed deploy).
 client.on(Events.Error, (err) => console.error('Client error:', err));
-process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
-process.on('uncaughtException', (err) => console.error('Uncaught exception (kept alive):', err));
+// uncaughtExceptionMonitor fires for EVERY uncaught exception (even though the
+// uncaughtException handler below keeps us alive) and gives the full stack +
+// origin — so a real code crash is always captured in the logs.
+process.on('uncaughtExceptionMonitor', (err, origin) => console.error(`uncaughtExceptionMonitor [${origin}]:`, err?.stack || err));
+process.on('uncaughtException', (err) => console.error('Uncaught exception (kept alive):', err?.stack || err));
+process.on('unhandledRejection', (reason) => console.error('Unhandled rejection (kept alive):', reason?.stack || reason));
+process.on('warning', (w) => console.warn('Node warning:', w?.stack || w?.message || w));
+process.on('beforeExit', (code) => console.log(`beforeExit (event loop empty) with code ${code}.`));
 
 // Shut down cleanly when the host stops the container (Railway sends SIGTERM on
 // every redeploy). Without this, Node's default SIGTERM handling exits with code
@@ -582,8 +595,32 @@ if (isMain) {
   console.log(`  GUILD_ID:          ${process.env.GUILD_ID ? 'set (instant guild commands)' : 'unset (global commands, ~1h)'}`);
   console.log(`  DATA_DIR:          ${process.env.DATA_DIR ? `set (${process.env.DATA_DIR})` : 'unset (settings WIPED on redeploy)'}`);
   console.log(`  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set (AI available)' : 'unset (AI disabled)'}`);
+  console.log(`  PID / PPID:        ${process.pid} / ${process.ppid}`);
+  // DEFINITIVE check of whether the signal-handling fix is active: if this was
+  // launched by `npm start`, npm sits in front of node and eats SIGTERM (causing
+  // the "crashed" emails). "direct node" means signals reach us and shutdown is clean.
+  console.log(`  Launched by:       ${process.env.npm_lifecycle_event
+    ? `⚠️ npm "${process.env.npm_lifecycle_event}" — npm may swallow SIGTERM (set start cmd to run node directly)`
+    : '✅ direct node (SIGTERM will reach the bot)'}`);
   console.log('  Requires the privileged "Message Content Intent" (Dev Portal → Bot).');
   console.log('──────────────────────────────────────────');
+
+  // Heartbeat: proves the bot is still alive and surfaces memory growth. If the
+  // host OOM-kills the container (SIGKILL/exit 137, which CANNOT be caught), the
+  // logs end right after a heartbeat showing climbing RSS — that's the evidence.
+  const mb = (n) => Math.round(n / 1048576);
+  setInterval(() => {
+    const m = process.memoryUsage();
+    console.log(`Heartbeat: up ${Math.round(process.uptime())}s | rss ${mb(m.rss)}MB | heap ${mb(m.heapUsed)}/${mb(m.heapTotal)}MB | discord ${client.isReady() ? 'ready' : 'DOWN'} | ws ping ${Math.round(client.ws?.ping ?? -1)}ms`);
+  }, 30000).unref();
+
+  // Firehose: discord.js internal gateway log (heartbeats, resumes, session
+  // invalidations, rate limits). Verbose but definitive for connection issues.
+  // Set LOG_DISCORD_DEBUG=false to silence it once the cause is found.
+  if (process.env.LOG_DISCORD_DEBUG !== 'false') {
+    client.on(Events.Debug, (m) => console.log('[discord:debug]', m));
+    client.on(Events.Warn, (m) => console.warn('[discord:warn]', m));
+  }
 
   // Tiny HTTP server so platform healthchecks (e.g. Railway) get a 200 response.
   // A Discord bot has no web server of its own, so without this a configured
