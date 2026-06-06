@@ -49,7 +49,16 @@ export const DEFAULT_AI_TRIGGERS = [
 ];
 
 const DEFAULTS = {
+  // The default/fallback alert channel. Any severity tier without its own
+  // channel set falls back to this one.
   alertChannelId: null,
+  // Optional per-severity-tier channels. null = fall back to alertChannelId.
+  //   high   = a flagged word AND the AI both judge it harmful
+  //   medium = the AI alone judges it harmful
+  //   low    = flagged/triggered but judged harmless (still worth a heads-up)
+  alertChannelHigh: null,
+  alertChannelMedium: null,
+  alertChannelLow: null,
   flaggedWords: [],
   logDeletes: true,
   logEdits: true,
@@ -126,9 +135,31 @@ export function getGuild(guildId) {
   return settings[guildId];
 }
 
-export function setAlertChannelId(guildId, channelId) {
-  getGuild(guildId).alertChannelId = channelId;
+// Maps a tier name to the settings key that stores its channel.
+const TIER_CHANNEL_KEYS = {
+  default: 'alertChannelId',
+  high: 'alertChannelHigh',
+  medium: 'alertChannelMedium',
+  low: 'alertChannelLow',
+};
+
+// Set the channel for a tier ('default' sets the fallback used by any tier
+// without its own channel). Pass channelId = null to clear a tier override so
+// it falls back to the default again.
+export function setTierChannel(guildId, tier, channelId) {
+  const key = TIER_CHANNEL_KEYS[tier];
+  if (!key) return { ok: false, reason: 'badtier' };
+  getGuild(guildId)[key] = channelId;
   persist();
+  return { ok: true, key };
+}
+
+// Resolve which channel a given tier's alert should go to: the tier's own
+// channel if set, otherwise the default alert channel.
+export function channelForTier(guildId, tier) {
+  const s = getGuild(guildId);
+  const key = TIER_CHANNEL_KEYS[tier] ?? 'alertChannelId';
+  return s[key] || s.alertChannelId;
 }
 
 export function setToggle(guildId, key, value) {

@@ -13,12 +13,21 @@ const command = new SlashCommandBuilder()
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((s) =>
     s.setName('setchannel')
-      .setDescription('Set the channel where all alerts are posted.')
+      .setDescription('Set where alerts go (optionally per severity tier).')
       .addChannelOption((o) =>
         o.setName('channel')
           .setDescription('The text channel to send alerts to')
           .addChannelTypes(ChannelType.GuildText)
-          .setRequired(true)))
+          .setRequired(true))
+      .addStringOption((o) =>
+        o.setName('tier')
+          .setDescription('Which alerts go here (omit = default/fallback for all tiers)')
+          .addChoices(
+            { name: 'Default — all alerts / fallback', value: 'default' },
+            { name: 'High — flagged word + AI confirm harmful', value: 'high' },
+            { name: 'Medium — AI-only harmful', value: 'medium' },
+            { name: 'Low — flagged but harmless', value: 'low' },
+          )))
   .addSubcommand((s) =>
     s.setName('addword')
       .setDescription('Add a word to the flagged list.')

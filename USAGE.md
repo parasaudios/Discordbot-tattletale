@@ -17,11 +17,15 @@ Tattletale reports three things to a single **mod-alert channel** you choose:
   ban-with-message-cleanup) are reported as a single summary too.
 - **Edited messages** — the before/after text with a jump link. Edited content
   is re-scanned, so a banned word or scam link added *after* posting is still caught.
-- **Flagged keywords** — when someone uses a word on your list, with the user,
-  channel, matched word, and full message.
+- **Flagged content** — when a flagged word and/or the AI flags a message.
+  These come in three colour-coded severity tiers:
+  - 🔴 **High** (red) — a flagged word **and** the AI both judge it harmful.
+  - 🟠 **Medium** (orange) — the AI judges it harmful (no flagged word).
+  - 🟡 **Low** (yellow) — flagged/AI-reviewed but **not** confirmed harmful (a heads-up).
 
-Every alert goes to the **dedicated alert channel you pick** — never the channel
-where the message or keyword appeared.
+Every alert goes to the **alert channel(s) you pick** — never the channel where
+the message appeared. By default all alerts share one channel; you can route each
+severity tier to its own channel with `/tattletale setchannel … tier:…`.
 
 ---
 
@@ -66,7 +70,7 @@ permission. Responses are private (only you see them).
 
 | Command | What it does |
 |---------|--------------|
-| `/tattletale setchannel channel:<#channel>` | Set the alert channel. Run again to change it. |
+| `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set the alert channel. No `tier` = default for all; a `tier` routes that severity to its own channel. |
 | `/tattletale addword word:<text>` | Add a word or phrase to the flagged list. |
 | `/tattletale removeword word:<text>` | Remove a word from the list. |
 | `/tattletale listwords` | Show all flagged words. |

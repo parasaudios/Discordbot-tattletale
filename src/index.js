@@ -10,7 +10,8 @@ import {
 } from 'discord.js';
 import {
   getGuild,
-  setAlertChannelId,
+  setTierChannel,
+  channelForTier,
   setToggle,
   addWord,
   removeWord,
@@ -85,14 +86,23 @@ function truncate(text, max = 1024) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-async function sendAlert(guild, embed) {
-  const { alertChannelId } = getGuild(guild.id);
-  if (!alertChannelId) return;
-  const channel = guild.channels.cache.get(alertChannelId)
-    ?? (await guild.channels.fetch(alertChannelId).catch(() => null));
+// Post an embed to a specific channel id (defaults to the guild's main alert
+// channel when no id is given — used by the delete/edit activity logs).
+async function sendAlert(guild, embed, channelId) {
+  const target = channelId ?? getGuild(guild.id).alertChannelId;
+  if (!target) return;
+  const channel = guild.channels.cache.get(target)
+    ?? (await guild.channels.fetch(target).catch(() => null));
   if (!channel || !channel.isTextBased()) return;
   await channel.send({ embeds: [embed] }).catch(() => null);
 }
+
+// Severity tiers, their colour, and a label for the alert title.
+const TIERS = {
+  high: { color: 0xED4245, label: '🔴 High alert — harmful (flagged word + AI confirmed)' },
+  medium: { color: 0xE67E22, label: '🟠 Warning — AI flagged as harmful' },
+  low: { color: 0xF1C40F, label: '🟡 Notice — flagged but likely harmless' },
+};
 
 client.once(Events.ClientReady, (c) => {
   console.log(`Tattletale online as ${c.user.tag}`);
@@ -107,49 +117,60 @@ async function screenMessage(message, origin = 'posted') {
   const settings = getGuild(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
-  // Layer 1 — keyword scan (only if logFlagged is on and words exist).
+  // Layer 1 — keyword filter (only if logFlagged is on and words exist).
   const matchedWord = settings.logFlagged
     ? findFlaggedWord(message.content, settings.flaggedWords)
     : null;
-  if (matchedWord) {
-    const embed = new EmbedBuilder()
-      .setTitle(`🚩 Flagged word detected${editedNote}`)
-      .setColor(0xED4245)
-      .addFields(
-        { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
-        { name: 'Channel', value: `${message.channel}`, inline: true },
-        { name: 'Matched', value: `\`${matchedWord}\``, inline: true },
-        { name: 'Message', value: truncate(message.content) },
-        { name: 'Jump', value: `[Go to message](${message.url})` },
-      )
-      .setTimestamp(message.createdAt);
-    await sendAlert(message.guild, embed);
-  }
 
   // Layer 2 — AI intent analysis, gated by the trigger list so API calls only
-  // happen when a scam/harassment signal is present. The AI then judges intent.
-  // (classifyMessage() also caches repeats to keep calls down.)
-  const aiTrigger = settings.aiEnabled
-    ? findFlaggedWord(message.content, settings.aiTriggers)
-    : null;
-  if (aiTrigger) {
-    const result = await classifyMessage(message.content);
-    if (result?.flag && result.confidence >= settings.aiThreshold) {
-      const embed = new EmbedBuilder()
-        .setTitle(`🤖 AI flagged a message${editedNote}`)
-        .setColor(0xEB459E)
-        .addFields(
-          { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
-          { name: 'Channel', value: `${message.channel}`, inline: true },
-          { name: 'Category', value: `${result.category} (${Math.round(result.confidence * 100)}%)`, inline: true },
-          { name: 'Why', value: truncate(result.reason || 'n/a', 256) },
-          { name: 'Message', value: truncate(message.content) },
-          { name: 'Jump', value: `[Go to message](${message.url})` },
-        )
-        .setTimestamp(message.createdAt);
-      await sendAlert(message.guild, embed);
-    }
+  // happen when a scam/harassment signal is present. classifyMessage() may
+  // return null on error/no-key (meaning "couldn't assess", not "harmless").
+  let aiResult = null;
+  const aiTriggered = settings.aiEnabled
+    && Boolean(findFlaggedWord(message.content, settings.aiTriggers));
+  if (aiTriggered) aiResult = await classifyMessage(message.content);
+
+  const aiHarmful = Boolean(aiResult?.flag && aiResult.confidence >= settings.aiThreshold);
+  const aiCleared = Boolean(aiResult && !aiHarmful); // AI ran and judged it harmless
+
+  // Nothing actionable → no alert.
+  if (!matchedWord && !aiHarmful && !aiCleared) return;
+
+  // Decide severity tier:
+  //   high   = the keyword filter AND the AI both say it's harmful
+  //   medium = the AI says it's harmful (no flagged word)
+  //   low    = flagged word and/or AI-reviewed, but not confirmed harmful
+  let tier;
+  if (matchedWord && aiHarmful) tier = 'high';
+  else if (aiHarmful) tier = 'medium';
+  else tier = 'low';
+
+  const fields = [
+    { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
+    { name: 'Channel', value: `${message.channel}`, inline: true },
+  ];
+  if (matchedWord) {
+    fields.push({ name: 'Flagged word', value: `\`${matchedWord}\``, inline: true });
   }
+  if (aiResult) {
+    const verdict = aiHarmful
+      ? `${aiResult.category} (${Math.round(aiResult.confidence * 100)}%)`
+      : `harmless (${aiResult.category || 'none'})`;
+    fields.push({ name: 'AI verdict', value: verdict, inline: true });
+    if (aiResult.reason) fields.push({ name: 'AI reason', value: truncate(aiResult.reason, 256) });
+  }
+  fields.push(
+    { name: 'Message', value: truncate(message.content) },
+    { name: 'Jump', value: `[Go to message](${message.url})` },
+  );
+
+  const embed = new EmbedBuilder()
+    .setTitle(`${TIERS[tier].label}${editedNote}`)
+    .setColor(TIERS[tier].color)
+    .addFields(fields)
+    .setTimestamp(message.createdAt);
+
+  await sendAlert(message.guild, embed, channelForTier(message.guild.id, tier));
 }
 
 // --- Flagged-word scanning + AI contextual detection ---
@@ -314,7 +335,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case 'setchannel': {
         const channel = interaction.options.getChannel('channel');
         if (!channel?.isTextBased()) return reply(interaction, 'Please choose a text channel.');
-        setAlertChannelId(guildId, channel.id);
+        const tier = interaction.options.getString('tier') ?? 'default';
+        setTierChannel(guildId, tier, channel.id);
 
         // Warn up front if the bot can't actually post there, so alerts don't
         // silently vanish later.
@@ -324,7 +346,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .filter((p) => !perms?.has(PermissionFlagsBits[p]))
           .map((p) => ({ ViewChannel: 'View Channel', SendMessages: 'Send Messages', EmbedLinks: 'Embed Links' }[p]));
 
-        let msg = `✅ Mod alerts will now be sent to ${channel}.`;
+        const tierLabel = {
+          default: 'all alerts (default)',
+          high: '🔴 high-severity alerts',
+          medium: '🟠 medium (AI-only) alerts',
+          low: '🟡 low / harmless alerts',
+        }[tier];
+        let msg = `✅ ${tierLabel} will now be sent to ${channel}.`;
+        if (tier !== 'default') {
+          msg += '\n(Any tier without its own channel falls back to the default set with `/tattletale setchannel` — no tier.)';
+        }
         if (missing.length) {
           msg += `\n⚠️ I'm missing **${missing.join(', ')}** in that channel, so alerts won't post until you grant them.`;
         }
@@ -387,6 +418,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case 'settings': {
         const s = getGuild(guildId);
         const ch = s.alertChannelId ? `<#${s.alertChannelId}>` : '*not set*';
+        const tierCh = (id) => (id ? `<#${id}>` : '↳ default');
         const roles = s.allowedRoleIds.length
           ? s.allowedRoleIds.map((id) => `<@&${id}>`).join(', ')
           : '*anyone with Manage Server*';
@@ -398,7 +430,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
           interaction,
           [
             '**Tattletale settings**',
-            `Alert channel: ${ch}`,
+            `Alert channel (default): ${ch}`,
+            `• 🔴 High alerts: ${tierCh(s.alertChannelHigh)}`,
+            `• 🟠 Medium alerts: ${tierCh(s.alertChannelMedium)}`,
+            `• 🟡 Low/harmless alerts: ${tierCh(s.alertChannelLow)}`,
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
             `Log flagged words: ${s.logFlagged ? 'ON' : 'OFF'}`,

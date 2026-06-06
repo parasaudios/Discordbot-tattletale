@@ -40,11 +40,20 @@ punishes anyone.
 | 🗑️ **Message deleted** | A user's message is deleted | ON |
 | 🧹 **Bulk delete** | Many messages purged at once (mod tools, ban-with-cleanup) | ON (follows the delete toggle) |
 | ✏️ **Message edited** | A user edits a message (before/after shown) | ON |
-| 🚩 **Flagged word** | A message (or edit) contains a word on your list | ON |
-| 🤖 **AI flagged** | The AI judges a message to be a scam/phishing/harassment | OFF |
+| 🔴🟠🟡 **Content alert** | A flagged word and/or the AI flags a message — colour-coded by severity (see below) | flagged ON, AI OFF |
 
-Every alert is posted to the **single mod-alert channel you pick** — never the
-channel where the original message appeared.
+Content alerts come in **three severity tiers**, each a different colour, and
+each can be routed to its own channel:
+
+| Tier | Colour | When | 
+|------|--------|------|
+| 🔴 **High** | red | A flagged word **and** the AI both judge it harmful |
+| 🟠 **Medium** | orange | The AI judges it harmful (no flagged word) |
+| 🟡 **Low** | yellow | A flagged word and/or AI-reviewed, but **not** confirmed harmful (a heads-up) |
+
+Every alert is posted to the **mod-alert channel(s) you pick** — never the
+channel where the original message appeared. By default everything goes to one
+channel; you can split the tiers across channels with `/tattletale setchannel … tier:…`.
 
 ---
 
@@ -123,7 +132,7 @@ use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that
 
 | Command | What it does |
 |---------|--------------|
-| `/tattletale setchannel channel:<#channel>` | Set/Change the channel where **all** alerts are posted. |
+| `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that severity there. |
 | `/tattletale addword word:<text>` | Add a word or phrase to the flagged list. |
 | `/tattletale removeword word:<text>` | Remove one word/phrase from the list. |
 | `/tattletale listwords` | Show every flagged word. |
@@ -142,6 +151,23 @@ use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that
 
 > All replies are **ephemeral** — only you see them, so configuring the bot
 > doesn't clutter the channel.
+
+### Routing severity tiers to different channels
+
+By default, **one** `/tattletale setchannel channel:#x` sends every alert (all
+tiers, plus delete/edit logs) to that channel. To split them up, set a channel
+per tier — any tier you don't set falls back to the default channel:
+
+```
+/tattletale setchannel channel:#mod-alerts                 # default / fallback for everything
+/tattletale setchannel channel:#urgent      tier:high      # 🔴 only critical alerts here
+/tattletale setchannel channel:#ai-flags    tier:medium    # 🟠 AI-only catches here
+/tattletale setchannel channel:#noise        tier:low      # 🟡 harmless heads-ups out of the way
+```
+
+So you can keep the serious 🔴/🟠 alerts in your main mod channel and shove the
+chatty 🟡 harmless ones into a low-priority channel. To send a tier back to the
+default, just set it to your default channel again.
 
 ---
 
@@ -359,7 +385,8 @@ through the commands above (no manual editing needed).
 
 | Setting | Default | Set with |
 |---------|---------|----------|
-| Alert channel | *none* (must be set) | `/tattletale setchannel` |
+| Alert channel (default/fallback) | *none* (must be set) | `/tattletale setchannel` |
+| Per-tier channels (high/medium/low) | fall back to default | `/tattletale setchannel … tier:high\|medium\|low` |
 | Flagged words | empty list | `/tattletale addword` / `removeword` / `clearwords` |
 | Log deletes (incl. bulk) | **ON** | `/tattletale toggle feature:deletes` |
 | Log edits | **ON** | `/tattletale toggle feature:edits` |
