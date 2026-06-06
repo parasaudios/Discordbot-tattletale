@@ -140,7 +140,7 @@ async function deploy() {
 const body = [command.toJSON()];
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.CLIENT_ID;
-const guildId = process.env.GUILD_ID;
+const serverId = process.env.SERVER_ID || process.env.GUILD_ID;
 
 if (!token || !clientId) {
   console.error('Missing DISCORD_TOKEN or CLIENT_ID in .env');
@@ -149,16 +149,16 @@ if (!token || !clientId) {
 
 const rest = new REST({ version: '10' }).setToken(token);
 
-// In guild mode, proactively remove any leftover GLOBAL copies of the command.
+// In server mode, proactively remove any leftover GLOBAL copies of the command.
 // A global registration (from before GUILD_ID was set, or an earlier unrestricted
-// version) persists separately from guild commands, is visible to EVERYONE, and
-// ignores the guild command's permission lock — so it must be cleared or it keeps
+// version) persists separately from server commands, is visible to EVERYONE, and
+// ignores the server command's permission lock — so it must be cleared or it keeps
 // "slipping past" the Manage Server restriction. Runs every deploy (cheap no-op
 // when already empty) and independently of the hash-skip below.
-if (guildId) {
+if (serverId) {
   try {
     await rest.put(Routes.applicationCommands(clientId), { body: [] });
-    console.log('Cleared any leftover GLOBAL commands (guild mode — guild commands keep the permission lock).');
+    console.log('Cleared any leftover GLOBAL commands (server mode — server commands keep the permission lock).');
   } catch (error) {
     console.error('Could not clear global commands:', error?.message || error);
   }
@@ -166,11 +166,11 @@ if (guildId) {
 
 // Utility: `npm run deploy -- --clear-global` removes any leftover GLOBAL command
 // copies (e.g. registered before GUILD_ID was set) that can duplicate or confuse
-// the client's command picker. Guild commands are left untouched.
+// the client's command picker. Server commands are left untouched.
 if (process.argv.includes('--clear-global')) {
   try {
     await rest.put(Routes.applicationCommands(clientId), { body: [] });
-    console.log('Cleared all global commands (guild commands left intact).');
+    console.log('Cleared all global commands (server commands left intact).');
   } catch (error) {
     console.error(error);
   }
@@ -184,7 +184,7 @@ if (process.argv.includes('--clear-global')) {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.DATA_DIR || join(__dirname, '..');
 const HASH_PATH = join(DATA_DIR, '.command-hash');
-const target = guildId ? `guild:${guildId}` : 'global';
+const target = serverId ? `server:${serverId}` : 'global';
 const hash = createHash('sha256').update(`${target}\n${JSON.stringify(body)}`).digest('hex');
 const force = process.argv.includes('--force');
 
@@ -195,9 +195,9 @@ if (!force && readHash() === hash) {
   console.log('Slash commands unchanged since last deploy — skipping registration.');
 } else {
   try {
-    if (guildId) {
-      await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body });
-      console.log(`Registered /tattletale to guild ${guildId} (appears instantly).`);
+    if (serverId) {
+      await rest.put(Routes.applicationGuildCommands(clientId, serverId), { body });
+      console.log(`Registered /tattletale to server ${serverId} (appears instantly).`);
     } else {
       await rest.put(Routes.applicationCommands(clientId), { body });
       console.log('Registered /tattletale globally. May take up to 1 hour to appear.');

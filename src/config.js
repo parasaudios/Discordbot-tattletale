@@ -18,11 +18,11 @@ try {
   console.error(`Could not create settings directory ${DATA_DIR}: ${err.message}`);
 }
 
-// All bot settings are stored per-guild in settings.json and managed entirely
+// All bot settings are stored per-server in settings.json and managed entirely
 // through in-Discord slash commands. No code edits or restarts are required to
 // change keywords, the alert channel, or any toggle.
 //
-// Shape (per guild): alertChannelId + per-tier channels, goodWords/badWords as
+// Shape (per server): alertChannelId + per-tier channels, goodWords/badWords as
 // { word, channelId, notify }[], aiTriggers as string[], plus toggles
 // (logDeletes/logEdits/logBadWords), and aiEnabled/aiThreshold.
 // Legacy flaggedWords/logFlagged are migrated to badWords/logBadWords on load.
@@ -76,7 +76,7 @@ const DEFAULTS = {
   // Lower = more sensitive (more alerts, more false positives); higher = stricter.
   aiThreshold: 0.6,
   // Words/phrases that gate the AI: it only runs on messages containing one of
-  // these. Seeded from DEFAULT_AI_TRIGGERS; editable per guild.
+  // these. Seeded from DEFAULT_AI_TRIGGERS; editable per server.
   aiTriggers: [...DEFAULT_AI_TRIGGERS],
 };
 
@@ -91,10 +91,10 @@ function loadAll() {
 
 let settings = loadAll();
 
-// Surface where settings live and how many guilds loaded, so a "my words reset"
+// Surface where settings live and how many servers loaded, so a "my words reset"
 // problem is diagnosable straight from the startup logs.
-const guildCount = Object.keys(settings).length;
-console.log(`Settings file: ${SETTINGS_PATH} (${guildCount} guild${guildCount === 1 ? '' : 's'} loaded)`);
+const serverCount = Object.keys(settings).length;
+console.log(`Settings file: ${SETTINGS_PATH} (${serverCount} server${serverCount === 1 ? '' : 's'} loaded)`);
 if (!process.env.DATA_DIR) {
   console.warn(
     '⚠️ DATA_DIR is not set, so settings.json lives in the project folder. ' +
@@ -130,11 +130,11 @@ function persist() {
   }
 }
 
-// Returns a guild's settings, filling in any missing defaults. Defaults are
-// deep-cloned so each guild gets its own arrays (otherwise mutating one guild's
-// lists would corrupt the shared defaults for every guild).
-export function getGuild(guildId) {
-  const merged = { ...structuredClone(DEFAULTS), ...(settings[guildId] ?? {}) };
+// Returns a server's settings, filling in any missing defaults. Defaults are
+// deep-cloned so each server gets its own arrays (otherwise mutating one server's
+// lists would corrupt the shared defaults for every server).
+export function getServer(serverId) {
+  const merged = { ...structuredClone(DEFAULTS), ...(settings[serverId] ?? {}) };
 
   // Migrate legacy fields from older versions.
   // flaggedWords (string[]) -> badWords ({ word, channelId, notify }[])
@@ -146,11 +146,11 @@ export function getGuild(guildId) {
   }
   // logFlagged (bool) -> logBadWords
   if (typeof merged.logFlagged === 'boolean') {
-    if (typeof (settings[guildId] ?? {}).logBadWords !== 'boolean') merged.logBadWords = merged.logFlagged;
+    if (typeof (settings[serverId] ?? {}).logBadWords !== 'boolean') merged.logBadWords = merged.logFlagged;
     delete merged.logFlagged;
   }
 
-  settings[guildId] = merged;
+  settings[serverId] = merged;
   return merged;
 }
 
@@ -165,25 +165,25 @@ const TIER_CHANNEL_KEYS = {
 // Set the channel for a tier ('default' sets the fallback used by any tier
 // without its own channel). Pass channelId = null to clear a tier override so
 // it falls back to the default again.
-export function setTierChannel(guildId, tier, channelId) {
+export function setTierChannel(serverId, tier, channelId) {
   const key = TIER_CHANNEL_KEYS[tier];
   if (!key) return { ok: false, reason: 'badtier' };
-  getGuild(guildId)[key] = channelId;
+  getServer(serverId)[key] = channelId;
   persist();
   return { ok: true, key };
 }
 
 // Resolve which channel a given tier's alert should go to: the tier's own
 // channel if set, otherwise the default alert channel.
-export function channelForTier(guildId, tier) {
-  const s = getGuild(guildId);
+export function channelForTier(serverId, tier) {
+  const s = getServer(serverId);
   const key = TIER_CHANNEL_KEYS[tier] ?? 'alertChannelId';
   return s[key] || s.alertChannelId;
 }
 
-export function setToggle(guildId, key, value) {
+export function setToggle(serverId, key, value) {
   // key is one of: logDeletes, logEdits, logBadWords
-  getGuild(guildId)[key] = value;
+  getServer(serverId)[key] = value;
   persist();
 }
 
@@ -207,71 +207,71 @@ function removeWordFrom(list, word) {
   return { ok: true, word: w };
 }
 
-export function addBadWord(guildId, word, channelId, notify) {
-  const g = getGuild(guildId);
+export function addBadWord(serverId, word, channelId, notify) {
+  const g = getServer(serverId);
   const r = addWordTo(g.badWords, word, channelId, notify);
   if (r.ok) persist();
   return r;
 }
-export function removeBadWord(guildId, word) {
-  const g = getGuild(guildId);
+export function removeBadWord(serverId, word) {
+  const g = getServer(serverId);
   const r = removeWordFrom(g.badWords, word);
   if (r.ok) persist();
   return r;
 }
-export function clearBadWords(guildId) {
-  const g = getGuild(guildId);
+export function clearBadWords(serverId) {
+  const g = getServer(serverId);
   const n = g.badWords.length;
   g.badWords = [];
   persist();
   return n;
 }
-export function listBadWords(guildId) {
-  return getGuild(guildId).badWords.map((e) => ({ ...e }));
+export function listBadWords(serverId) {
+  return getServer(serverId).badWords.map((e) => ({ ...e }));
 }
 
-export function addGoodWord(guildId, word, channelId, notify) {
-  const g = getGuild(guildId);
+export function addGoodWord(serverId, word, channelId, notify) {
+  const g = getServer(serverId);
   const r = addWordTo(g.goodWords, word, channelId, notify);
   if (r.ok) persist();
   return r;
 }
-export function removeGoodWord(guildId, word) {
-  const g = getGuild(guildId);
+export function removeGoodWord(serverId, word) {
+  const g = getServer(serverId);
   const r = removeWordFrom(g.goodWords, word);
   if (r.ok) persist();
   return r;
 }
-export function clearGoodWords(guildId) {
-  const g = getGuild(guildId);
+export function clearGoodWords(serverId) {
+  const g = getServer(serverId);
   const n = g.goodWords.length;
   g.goodWords = [];
   persist();
   return n;
 }
-export function listGoodWords(guildId) {
-  return getGuild(guildId).goodWords.map((e) => ({ ...e }));
+export function listGoodWords(serverId) {
+  return getServer(serverId).goodWords.map((e) => ({ ...e }));
 }
 
 // --- AI detection toggle ---
 
-export function setAiEnabled(guildId, value) {
-  getGuild(guildId).aiEnabled = !!value;
+export function setAiEnabled(serverId, value) {
+  getServer(serverId).aiEnabled = !!value;
   persist();
 }
 
 // Clamp to [0, 1] so an out-of-range value can never disable or spam the AI.
-export function setAiThreshold(guildId, value) {
+export function setAiThreshold(serverId, value) {
   const v = Math.max(0, Math.min(1, Number(value)));
-  getGuild(guildId).aiThreshold = v;
+  getServer(serverId).aiThreshold = v;
   persist();
   return v;
 }
 
 // --- AI trigger list (scam/harassment signals that gate AI screening) ---
 
-export function addAiTrigger(guildId, phrase) {
-  const g = getGuild(guildId);
+export function addAiTrigger(serverId, phrase) {
+  const g = getServer(serverId);
   const p = phrase.trim().toLowerCase();
   if (!p) return { ok: false, reason: 'empty' };
   if (g.aiTriggers.includes(p)) return { ok: false, reason: 'exists' };
@@ -280,8 +280,8 @@ export function addAiTrigger(guildId, phrase) {
   return { ok: true, phrase: p };
 }
 
-export function removeAiTrigger(guildId, phrase) {
-  const g = getGuild(guildId);
+export function removeAiTrigger(serverId, phrase) {
+  const g = getServer(serverId);
   const p = phrase.trim().toLowerCase();
   const i = g.aiTriggers.indexOf(p);
   if (i === -1) return { ok: false, reason: 'missing' };
@@ -290,8 +290,8 @@ export function removeAiTrigger(guildId, phrase) {
   return { ok: true, phrase: p };
 }
 
-export function editAiTrigger(guildId, oldPhrase, newPhrase) {
-  const g = getGuild(guildId);
+export function editAiTrigger(serverId, oldPhrase, newPhrase) {
+  const g = getServer(serverId);
   const oldP = oldPhrase.trim().toLowerCase();
   const newP = newPhrase.trim().toLowerCase();
   if (!newP) return { ok: false, reason: 'empty' };
@@ -305,15 +305,15 @@ export function editAiTrigger(guildId, oldPhrase, newPhrase) {
 
 // Clearing restores the built-in default set rather than emptying the list, so
 // the AI keeps a sensible baseline of scam/harassment signals to watch for.
-export function clearAiTriggers(guildId) {
-  const g = getGuild(guildId);
+export function clearAiTriggers(serverId) {
+  const g = getServer(serverId);
   g.aiTriggers = [...DEFAULT_AI_TRIGGERS];
   persist();
   return g.aiTriggers.length;
 }
 
-export function listAiTriggers(guildId) {
-  return [...getGuild(guildId).aiTriggers];
+export function listAiTriggers(serverId) {
+  return [...getServer(serverId).aiTriggers];
 }
 
 // Where settings are stored and whether persistence is configured. Surfaced in

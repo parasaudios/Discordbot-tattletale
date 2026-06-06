@@ -28,7 +28,7 @@ A custom bot for a Discord server.
 - Auth uses a **Bot Token** (keep secret — never commit it). This is NOT the same
   as the application's **client secret** or **public key**.
 - The **public key** is used to verify incoming interactions (e.g. slash commands).
-- **OAuth2 scopes:** for a server (guild) install, use the `bot` scope plus
+- **OAuth2 scopes:** for a server install, use the `bot` scope plus
   `applications.commands`. Selecting `bot` reveals a **Permissions** menu — request
   only the permissions the bot needs (e.g. `Send Messages`).
 - The official getting-started guide builds a rock-paper-scissors app in Node.js
@@ -53,7 +53,7 @@ v14** (Node ≥18, ESM). Source lives in `src/`:
 
 - `src/index.js` — gateway client, event handlers, message screening, slash-command
   handling, startup/health/diagnostics.
-- `src/config.js` — per-guild settings, persisted to `settings.json` (see `DATA_DIR`).
+- `src/config.js` — per-server settings, persisted to `settings.json` (see `DATA_DIR`).
 - `src/deploy-commands.js` — builds & registers the `/tattletale` slash command.
 - `src/ai.js` — Anthropic (Claude) contextual classification.
 
@@ -108,7 +108,7 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 ### Environment variables
 
 `DISCORD_TOKEN` (req), `CLIENT_ID` (req, for command registration),
-`GUILD_ID` (optional, instant guild commands), `DATA_DIR` (point at a mounted
+`SERVER_ID` (optional, instant server commands; legacy `GUILD_ID` still works), `DATA_DIR` (point at a mounted
 volume so `settings.json` survives redeploys), `ANTHROPIC_API_KEY` (optional, AI),
 `PORT` (healthcheck server; host-provided), `LOG_DISCORD_DEBUG` (set `false` to
 silence the gateway debug firehose).
@@ -158,4 +158,4 @@ These fixes exist because of real production issues; do not regress them:
     `setDefaultMemberPermissions(ManageGuild)` by default; extra roles/members
     granted via Server Settings → Integrations → Tattletale.
 - **1.0.0** — Initial bot: delete/edit/bulk-delete logging, flagged-word alerts,
-  optional AI detection, role allowlist, per-guild persisted settings.
+  optional AI detection, role allowlist, per-server persisted settings.

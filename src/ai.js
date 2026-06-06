@@ -26,7 +26,7 @@ Respond with ONLY a compact JSON object, no markdown, no extra text:
 
 Judge intent and context. Normal friendly conversation, banter and jokes between friends, and casual mentions of money, links or gifts are NOT automatically violations. Flag genuine scams, phishing, threats, harassment, hate speech, unwanted sexual content, encouragement of self-harm, or coordinated spam. When unsure, use a lower confidence rather than over-flagging.`;
 
-// Note: which messages reach the AI is decided by the per-guild trigger list in
+// Note: which messages reach the AI is decided by the per-server trigger list in
 // index.js (a message must contain a scam/harassment signal phrase). The AI then
 // judges intent. This keeps API calls limited to messages worth checking.
 

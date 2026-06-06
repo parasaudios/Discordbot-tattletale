@@ -11,7 +11,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import {
-  getGuild,
+  getServer,
   setTierChannel,
   channelForTier,
   setToggle,
@@ -112,14 +112,14 @@ function decideTier({ badHit, aiHarmful, aiCleared }) {
   return null;
 }
 
-// Post an embed to a specific channel id (defaults to the guild's main alert
+// Post an embed to a specific channel id (defaults to the server's main alert
 // channel when no id is given). `notify` is an optional mention string
 // (<@user> or <@&role>) to ping alongside the alert.
-async function sendAlert(guild, embed, channelId, notify) {
-  const target = channelId ?? getGuild(guild.id).alertChannelId;
+async function sendAlert(server, embed, channelId, notify) {
+  const target = channelId ?? getServer(server.id).alertChannelId;
   if (!target) return;
-  const channel = guild.channels.cache.get(target)
-    ?? (await guild.channels.fetch(target).catch(() => null));
+  const channel = server.channels.cache.get(target)
+    ?? (await server.channels.fetch(target).catch(() => null));
   if (!channel || !channel.isTextBased()) return;
   const payload = { embeds: [embed] };
   if (notify) {
@@ -147,7 +147,7 @@ client.once(Events.ClientReady, (c) => {
 // `origin` is shown in the alert ('posted' vs 'edited').
 async function screenMessage(message, origin = 'posted') {
   if (message.author?.bot || !message.guild || !message.content) return;
-  const settings = getGuild(message.guild.id);
+  const settings = getServer(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
   const baseFields = () => ([
@@ -223,7 +223,7 @@ client.on(Events.MessageCreate, (message) => screenMessage(message, 'posted'));
 // --- Deleted messages ---
 client.on(Events.MessageDelete, async (message) => {
   if (!message.guild || message.author?.bot) return;
-  if (!getGuild(message.guild.id).logDeletes) return;
+  if (!getServer(message.guild.id).logDeletes) return;
 
   const embed = new EmbedBuilder()
     .setTitle('🗑️ Message deleted')
@@ -241,8 +241,8 @@ client.on(Events.MessageDelete, async (message) => {
 // This is a SEPARATE gateway event from MessageDelete; without it, mass deletes
 // would never be logged. Uncached messages arrive with only an ID.
 client.on(Events.MessageBulkDelete, async (messages, channel) => {
-  const guild = channel.guild;
-  if (!guild || !getGuild(guild.id).logDeletes) return;
+  const server = channel.guild;
+  if (!server || !getServer(server.id).logDeletes) return;
 
   const human = [...messages.values()].filter((m) => !m.author?.bot);
   const lines = human.slice(0, 15).map((m) => {
@@ -263,7 +263,7 @@ client.on(Events.MessageBulkDelete, async (messages, channel) => {
       },
     )
     .setTimestamp(new Date());
-  await sendAlert(guild, embed);
+  await sendAlert(server, embed);
 });
 
 // --- Edited messages ---
@@ -284,7 +284,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   if (newMessage.author?.bot) return;
   if (!oldMessage.partial && oldMessage.content === newMessage.content) return;
 
-  if (getGuild(newMessage.guild.id).logEdits) {
+  if (getServer(newMessage.guild.id).logEdits) {
     const embed = new EmbedBuilder()
       .setTitle('✏️ Message edited')
       .setColor(0x5865F2)
@@ -318,7 +318,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // that reaches us has already been authorized by Discord, so there's no extra
   // permission gate here.
 
-  const guildId = interaction.guild.id;
+  const serverId = interaction.guild.id;
   const group = interaction.options.getSubcommandGroup(false);
   const sub = interaction.options.getSubcommand();
 
@@ -327,19 +327,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (group === 'judgewords') {
       switch (sub) {
         case 'add': {
-          const r = addAiTrigger(guildId, interaction.options.getString('phrase'));
+          const r = addAiTrigger(serverId, interaction.options.getString('phrase'));
           if (!r.ok && r.reason === 'exists') return reply(interaction, 'That phrase is already a Judge trigger.');
           if (!r.ok) return reply(interaction, 'That phrase is empty or invalid.');
           return reply(interaction, `✅ Added \`${r.phrase}\` to the Judge trigger list. The Judge will now review messages containing it.`);
         }
         case 'remove': {
-          const r = removeAiTrigger(guildId, interaction.options.getString('phrase'));
+          const r = removeAiTrigger(serverId, interaction.options.getString('phrase'));
           if (!r.ok) return reply(interaction, 'That phrase is not on the Judge trigger list.');
           return reply(interaction, `✅ Removed \`${r.phrase}\` from the Judge trigger list.`);
         }
         case 'edit': {
           const r = editAiTrigger(
-            guildId,
+            serverId,
             interaction.options.getString('old'),
             interaction.options.getString('new'),
           );
@@ -349,13 +349,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return reply(interaction, `✅ Changed \`${r.oldPhrase}\` → \`${r.newPhrase}\` in the Judge trigger list.`);
         }
         case 'list': {
-          const triggers = listAiTriggers(guildId);
+          const triggers = listAiTriggers(serverId);
           if (!triggers.length) return reply(interaction, 'No Judge trigger phrases set. Restore the defaults with `/tattletale judgewords clear`.');
           const body = `**Judge trigger phrases (${triggers.length}):**\n${triggers.map((t) => `\`${t}\``).join(', ')}`;
           return reply(interaction, truncate(body, 1900));
         }
         case 'clear': {
-          const count = clearAiTriggers(guildId);
+          const count = clearAiTriggers(serverId);
           return reply(interaction, `✅ Reset the Judge trigger list to the built-in defaults (${count} phrase(s)).`);
         }
         default:
@@ -384,7 +384,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           if (channel && !channel.isTextBased()) return reply(interaction, 'Please choose a text channel.');
           const mentionable = interaction.options.getMentionable('notify');
           const notify = mentionable ? mentionable.toString() : null;
-          const r = fns.add(guildId, word, channel?.id ?? null, notify);
+          const r = fns.add(serverId, word, channel?.id ?? null, notify);
           if (!r.ok && r.reason === 'exists') return reply(interaction, `That word is already on the ${label}-word list.`);
           if (!r.ok) return reply(interaction, 'That word is empty or invalid.');
           let m = `✅ Added \`${r.word}\` to the **${label}-word** list.`;
@@ -394,16 +394,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return reply(interaction, m);
         }
         case 'remove': {
-          const r = fns.remove(guildId, interaction.options.getString('word'));
+          const r = fns.remove(serverId, interaction.options.getString('word'));
           if (!r.ok) return reply(interaction, `That word is not on the ${label}-word list.`);
           return reply(interaction, `✅ Removed \`${r.word}\` from the ${label}-word list.`);
         }
         case 'clear': {
-          const n = fns.clear(guildId);
+          const n = fns.clear(serverId);
           return reply(interaction, `✅ Cleared ${n} ${label} word(s).`);
         }
         case 'list': {
-          const items = fns.list(guildId);
+          const items = fns.list(serverId);
           if (!items.length) return reply(interaction, `No ${label} words set. Add one with \`/tattletale ${label}word add\`.`);
           return reply(interaction, truncate(`**${Label} words (${items.length}):**\n${items.map(fmt).join('\n')}`, 1900));
         }
@@ -417,7 +417,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const channel = interaction.options.getChannel('channel');
         if (!channel?.isTextBased()) return reply(interaction, 'Please choose a text channel.');
         const tier = interaction.options.getString('tier') ?? 'default';
-        setTierChannel(guildId, tier, channel.id);
+        setTierChannel(serverId, tier, channel.id);
 
         // Warn up front if the bot can't actually post there, so alerts don't
         // silently vanish later.
@@ -446,7 +446,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const feature = interaction.options.getString('feature');
         const enabled = interaction.options.getBoolean('enabled');
         const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords' };
-        setToggle(guildId, map[feature], enabled);
+        setToggle(serverId, map[feature], enabled);
         return reply(interaction, `✅ Logging for **${feature}** is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
       case 'judge': {
@@ -454,18 +454,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (enabled && !process.env.ANTHROPIC_API_KEY) {
           return reply(interaction, '⚠️ Judging needs an `ANTHROPIC_API_KEY` set on the host. Add it, then enable.');
         }
-        setAiEnabled(guildId, enabled);
+        setAiEnabled(serverId, enabled);
         return reply(interaction, `✅ Contextual judging is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
       case 'judgethreshold': {
-        const value = setAiThreshold(guildId, interaction.options.getNumber('value'));
+        const value = setAiThreshold(serverId, interaction.options.getNumber('value'));
         return reply(
           interaction,
           `✅ Judge confidence threshold set to **${value}**. The Judge must be at least ${Math.round(value * 100)}% sure a message is abusive before it alerts (lower = more sensitive, higher = stricter).`,
         );
       }
       case 'settings': {
-        const s = getGuild(guildId);
+        const s = getServer(serverId);
         const ch = s.alertChannelId ? `<#${s.alertChannelId}>` : '*not set*';
         const tierCh = (id) => (id ? `<#${id}>` : '↳ default');
         const store = storageInfo();
@@ -562,7 +562,7 @@ if (isMain) {
   console.log(`  Node:              ${process.version}`);
   console.log(`  DISCORD_TOKEN:     ${present('DISCORD_TOKEN')}`);
   console.log(`  CLIENT_ID:         ${present('CLIENT_ID')}`);
-  console.log(`  GUILD_ID:          ${process.env.GUILD_ID ? 'set (instant guild commands)' : 'unset (global commands, ~1h)'}`);
+  console.log(`  SERVER_ID:         ${(process.env.SERVER_ID ?? process.env.GUILD_ID) ? 'set (instant server commands)' : 'unset (global commands, ~1h)'}`);
   console.log(`  DATA_DIR:          ${process.env.DATA_DIR ? `set (${process.env.DATA_DIR})` : 'unset (settings WIPED on redeploy)'}`);
   console.log(`  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set (judging available)' : 'unset (judging disabled)'}`);
   console.log(`  PID / PPID:        ${process.pid} / ${process.ppid}`);

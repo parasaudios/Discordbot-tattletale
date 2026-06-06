@@ -73,7 +73,7 @@ These are set on the machine running the bot, **not** in Discord. Copy
 |----------|----------|------------|-----------------|
 | `DISCORD_TOKEN` | ✅ Yes | The bot's login token. **Keep secret.** | Developer Portal → your app → **Bot** → Reset/Copy Token |
 | `CLIENT_ID` | ✅ Yes | Your application (client) ID. Needed to register commands. | Developer Portal → your app → **General Information** → Application ID |
-| `GUILD_ID` | ⬜ Optional | A server ID. If set, slash commands register to that server **instantly** (great for testing). Leave blank to register globally (can take up to ~1 hour to appear). | Right-click your server icon → Copy Server ID (Developer Mode on) |
+| `SERVER_ID` | ⬜ Optional | A server ID. If set, slash commands register to that server **instantly** (great for testing). Leave blank to register globally (~1 hour to appear). Legacy `GUILD_ID` still works. | Right-click your server icon → Copy Server ID (Developer Mode on) |
 | `DATA_DIR` | ⬜ Optional | Folder where `settings.json` is saved. Point it at a mounted volume (e.g. `/data` on Railway) so settings survive redeploys. Defaults to the project root. | You choose |
 | `ANTHROPIC_API_KEY` | ⬜ Optional | Enables judging. Without it, the `judge` feature simply stays off. | https://console.anthropic.com |
 
@@ -82,7 +82,7 @@ Example `.env`:
 ```bash
 DISCORD_TOKEN=your-bot-token-here
 CLIENT_ID=123456789012345678
-GUILD_ID=                      # blank = register globally
+SERVER_ID=                     # blank = register globally
 DATA_DIR=                      # blank = project root
 ANTHROPIC_API_KEY=             # blank = judging disabled
 ```
@@ -108,8 +108,8 @@ You can also register manually without starting the bot:
 npm run deploy       # registers the /tattletale command only
 ```
 
-- With `GUILD_ID` set → the command appears in that server immediately.
-- With `GUILD_ID` blank → it registers globally and may take up to ~1 hour.
+- With `SERVER_ID` set → the command appears in that server immediately.
+- With `SERVER_ID` blank → it registers globally and may take up to ~1 hour.
 
 ### Required Discord permissions & intents
 
@@ -400,7 +400,7 @@ View the live values any time:
 | **No alerts appear at all** | No alert channel set — run `/tattletale setchannel`. Confirm the feature toggle is on with `/tattletale settings`. |
 | **Alerts stopped / never post to the channel** | The bot lacks **View Channel / Send Messages / Embed Links** in the alert channel. Re-run `/tattletale setchannel` — it warns about missing permissions. |
 | **Keyword & judging do nothing** | **Message Content Intent** isn't enabled in the Developer Portal (Bot → Privileged Gateway Intents). |
-| **`/tattletale` doesn't show up** | Registration runs automatically on start, but global commands can take ~1 hour to appear; set `GUILD_ID` for instant registration. If still missing, redeploy/restart the bot (or run `npm run deploy`) and check the logs for a registration error. |
+| **`/tattletale` doesn't show up** | Registration runs automatically on start, but global commands can take ~1 hour to appear; set `SERVER_ID` for instant registration. If still missing, redeploy/restart the bot (or run `npm run deploy`) and check the logs for a registration error. |
 | **Can't see / use `/tattletale`** | You don't have **Manage Server** and haven't been granted the command. A server admin can allow your role/account in **Server Settings → Integrations → Tattletale**. |
 | **Judge won't enable** | `ANTHROPIC_API_KEY` isn't set on the host. Add it, restart, then `/tattletale judge enabled:true`. |
 | **Settings reset after a redeploy** | Set `DATA_DIR` to a persistent/mounted volume so `settings.json` survives. |
