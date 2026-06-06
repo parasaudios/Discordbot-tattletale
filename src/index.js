@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 import {
   Client,
@@ -563,6 +564,19 @@ if (isMain) {
   console.log(`  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set (AI available)' : 'unset (AI disabled)'}`);
   console.log('  Requires the privileged "Message Content Intent" (Dev Portal → Bot).');
   console.log('──────────────────────────────────────────');
+
+  // Tiny HTTP server so platform healthchecks (e.g. Railway) get a 200 response.
+  // A Discord bot has no web server of its own, so without this a configured
+  // healthcheck times out and the host marks the deploy "failed" — even though
+  // the bot is running fine. Binds the host-provided $PORT (falls back to 3000).
+  const healthPort = process.env.PORT || 3000;
+  http.createServer((req, res) => {
+    const status = client.isReady() ? 'ready' : 'starting';
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(`Tattletale ${status}\n`);
+  })
+    .listen(healthPort, () => console.log(`Healthcheck server listening on :${healthPort}`))
+    .on('error', (err) => console.error('Healthcheck server error:', err.message));
 
   const token = process.env.DISCORD_TOKEN;
   if (!token) {
