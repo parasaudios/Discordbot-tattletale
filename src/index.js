@@ -460,6 +460,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
 client.on(Events.Error, (err) => console.error('Client error:', err));
 process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
 
+// Shut down cleanly when the host stops the container (Railway sends SIGTERM on
+// every redeploy). Without this, Node's default SIGTERM handling exits with code
+// 143 (non-zero), which Railway flags as a "crash" and emails about — on every
+// single deploy. Exiting 0 makes replacement deploys graceful and silent.
+let shuttingDown = false;
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`Received ${signal} — shutting down cleanly.`);
+  try { client.destroy(); } catch { /* ignore */ }
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
   console.error('❌ Missing DISCORD_TOKEN. Set it in your host\'s Variables (or .env locally).');
