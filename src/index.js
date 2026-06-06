@@ -549,6 +549,21 @@ export { screenMessage, findMatch, decideTier };
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
+  // Startup diagnostic banner — printed to the host's Deploy Logs (e.g. Railway)
+  // so a failed start shows *exactly* what's configured, without leaking secrets.
+  // Logs presence (set/MISSING), never the values.
+  const present = (v) => (process.env[v] ? 'set' : '— MISSING');
+  console.log('──────────────────────────────────────────');
+  console.log('Tattletale starting up…');
+  console.log(`  Node:              ${process.version}`);
+  console.log(`  DISCORD_TOKEN:     ${present('DISCORD_TOKEN')}`);
+  console.log(`  CLIENT_ID:         ${present('CLIENT_ID')}`);
+  console.log(`  GUILD_ID:          ${process.env.GUILD_ID ? 'set (instant guild commands)' : 'unset (global commands, ~1h)'}`);
+  console.log(`  DATA_DIR:          ${process.env.DATA_DIR ? `set (${process.env.DATA_DIR})` : 'unset (settings WIPED on redeploy)'}`);
+  console.log(`  ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'set (AI available)' : 'unset (AI disabled)'}`);
+  console.log('  Requires the privileged "Message Content Intent" (Dev Portal → Bot).');
+  console.log('──────────────────────────────────────────');
+
   const token = process.env.DISCORD_TOKEN;
   if (!token) {
     console.error('❌ Missing DISCORD_TOKEN. Set it in your host\'s Variables (or .env locally).');
