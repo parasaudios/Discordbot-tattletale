@@ -150,8 +150,36 @@ const TIERS = {
   good: { color: 0x57F287, label: '✅ Good word used (safe)' },
 };
 
-client.once(Events.ClientReady, (c) => {
+client.once(Events.ClientReady, async (c) => {
   console.log(`Tattletale online as ${c.user.tag}`);
+
+  // Auto-set the bot's username. Discord limits username changes to ~2/hour, so
+  // only rename when it's actually wrong (skips on every normal restart). Set
+  // BOT_NAME to override the target name; defaults to "TattleTale".
+  const desiredName = process.env.BOT_NAME || 'TattleTale';
+  if (c.user.username !== desiredName) {
+    try {
+      await c.user.setUsername(desiredName);
+      console.log(`Renamed bot username → "${desiredName}".`);
+    } catch (err) {
+      console.error(
+        `Could not rename bot to "${desiredName}": ${err?.message || err}. `
+        + 'Discord limits username changes to ~2/hour — it will retry on the next restart, '
+        + 'or set it manually in the Developer Portal (General Information → Name, and Bot → Username).',
+      );
+    }
+  }
+
+  // Also set a per-server nickname so the display name is correct immediately,
+  // even if the global username change is rate-limited.
+  for (const server of c.guilds.cache.values()) {
+    try {
+      const me = server.members.me ?? (await server.members.fetchMe().catch(() => null));
+      if (me && me.nickname !== desiredName && me.user.username !== desiredName) {
+        await me.setNickname(desiredName);
+      }
+    } catch { /* missing Change Nickname permission — non-fatal */ }
+  }
 });
 
 // Screen a message's content for flagged words and (optionally) AI-detected
