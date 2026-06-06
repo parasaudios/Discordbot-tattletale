@@ -427,7 +427,21 @@ process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', 
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) {
-  console.error('Missing DISCORD_TOKEN. Copy .env.example to .env and fill it in.');
+  console.error('❌ Missing DISCORD_TOKEN. Set it in your host\'s Variables (or .env locally).');
   process.exit(1);
 }
-client.login(token);
+
+// Log in with a clear, actionable message if it fails, so a crashed deploy says
+// *why* in the logs instead of dumping a raw stack trace.
+client.login(token).catch((err) => {
+  const msg = err?.message || String(err);
+  console.error('❌ Could not log in to Discord.');
+  if (err?.code === 'TokenInvalid' || /invalid token/i.test(msg)) {
+    console.error('   → The DISCORD_TOKEN is invalid or expired. Reset it in the Developer Portal (Bot → Reset Token) and update the Variables/.env.');
+  } else if (err?.code === 'DisallowedIntents' || /disallowed intents/i.test(msg)) {
+    console.error('   → Enable the Message Content Intent (Developer Portal → Bot → Privileged Gateway Intents), then redeploy.');
+  } else {
+    console.error('   →', msg);
+  }
+  process.exit(1);
+});
