@@ -548,12 +548,20 @@ let shuttingDown = false;
 function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`Received ${signal} — shutting down cleanly.`);
+  console.log(`Received ${signal} — shutting down cleanly (exit 0).`);
   try { client.destroy(); } catch { /* ignore */ }
   process.exit(0);
 }
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+// Catch every stop signal a host might send. NOTE: this only works if signals
+// reach THIS process — running via `npm start` means npm gets the signal and
+// doesn't forward it, so production must run `node src/index.js` directly
+// (see railway.json) for these handlers to fire.
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP', 'SIGQUIT']) {
+  process.on(sig, () => shutdown(sig));
+}
+// Last-resort visibility: always log the final exit code so a "crash" in the
+// host dashboard can be matched to an actual code (0 = clean, 137 = SIGKILL/OOM).
+process.on('exit', (code) => console.log(`Process exiting with code ${code}.`));
 
 // Only connect to Discord when run directly (npm start) — importing this module
 // for tests/tooling should not attempt a login. screenMessage/findMatch/decideTier
