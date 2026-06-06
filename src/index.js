@@ -322,6 +322,62 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const group = interaction.options.getSubcommandGroup(false);
   const sub = interaction.options.getSubcommand();
 
+  // --- TEMP access diagnostic ---------------------------------------------------
+  // Logs who invoked the command, the requirement, whether they meet it (and how),
+  // and — crucially — whether they used the SERVER command (permission-locked) or a
+  // stale GLOBAL command (no lock). This is to figure out why members without
+  // Manage Server can still run the commands. Posts to the alert channel + console.
+  try {
+    const cmdPath = ['/tattletale', group, sub].filter(Boolean).join(' ');
+    const hasManageServer = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
+    const isAdmin = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
+    const isOwner = interaction.guild?.ownerId === interaction.user.id;
+    const meets = hasManageServer || isAdmin || isOwner;
+    const rolesCache = interaction.member?.roles?.cache;
+    const roleNames = rolesCache
+      ? [...rolesCache.values()].filter((r) => r.id !== serverId).map((r) => r.name)
+      : [];
+    const isGlobalCmd = !interaction.commandGuildId; // null = global command was used
+
+    console.log(
+      `[access] ${interaction.user.tag} (${interaction.user.id}) -> ${cmdPath} | `
+      + `scope=${isGlobalCmd ? 'GLOBAL(!)' : `server:${interaction.commandGuildId}`} | `
+      + `ManageServer=${hasManageServer} Admin=${isAdmin} Owner=${isOwner} meets=${meets} | `
+      + `roles=[${roleNames.join(', ')}]`,
+    );
+
+    const diag = new EmbedBuilder()
+      .setTitle('🔎 Command access diagnostic')
+      .setColor(meets ? 0x57F287 : 0xED4245)
+      .addFields(
+        { name: 'User', value: `${interaction.user} (${interaction.user.tag} · \`${interaction.user.id}\`)` },
+        { name: 'Command used', value: `\`${cmdPath}\`` },
+        {
+          name: 'Command scope',
+          value: isGlobalCmd
+            ? '⚠️ **GLOBAL command** — global commands carry **no Manage Server lock**, so anyone can run them. This is almost certainly why non-admins can use it. Fix: it is auto-cleared on the next deploy, or run `npm run deploy -- --clear-global`.'
+            : `✅ server command (registered to \`${interaction.commandGuildId}\`)`,
+        },
+        { name: 'Requirement', value: '**Manage Server** — enforced by Discord via the command\'s default permissions.' },
+        { name: 'Meets requirement?', value: meets ? '✅ YES' : '❌ NO — yet Discord still delivered this command (see scope above).' },
+        {
+          name: 'How (breakdown)',
+          value: [
+            `${hasManageServer ? '✅' : '❌'} Manage Server permission`,
+            `${isAdmin ? '✅' : '❌'} Administrator`,
+            `${isOwner ? '✅' : '❌'} Server owner`,
+            `Roles: ${roleNames.length ? roleNames.join(', ') : '*none*'}`,
+          ].join('\n'),
+        },
+        { name: 'Result', value: '⚠️ Command **executed** — there is no in-code block; access is delegated to Discord.' },
+      )
+      .setTimestamp(new Date());
+    await sendAlert(interaction.guild, diag);
+  } catch (err) {
+    console.error('Access diagnostic failed:', err?.message || err);
+  }
+  // --- end TEMP access diagnostic ----------------------------------------------
+
   try {
     // --- AI trigger list management: /tattletale judgewords <add|remove|edit|list|clear> ---
     if (group === 'judgewords') {
