@@ -85,6 +85,7 @@ const command = new SlashCommandBuilder()
             { name: 'Deleted messages', value: 'deletes' },
             { name: 'Edited messages', value: 'edits' },
             { name: 'Bad words', value: 'badwords' },
+            { name: 'Debug logging', value: 'debug' },
           ))
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
@@ -126,6 +127,21 @@ const command = new SlashCommandBuilder()
         s.setName('list').setDescription('Show all Judge trigger phrases.'))
       .addSubcommand((s) =>
         s.setName('clear').setDescription('Reset the Judge trigger list to the built-in defaults.')))
+  .addSubcommandGroup((g) =>
+    g.setName('watch')
+      .setDescription('Choose which channels the bot monitors (empty = all channels).')
+      .addSubcommand((s) =>
+        s.setName('add')
+          .setDescription('Only monitor this channel (and its threads). Restricts to the watch list.')
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Channel to monitor').setRequired(true)))
+      .addSubcommand((s) =>
+        s.setName('remove')
+          .setDescription('Stop monitoring this channel.')
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Channel to remove from the watch list').setRequired(true)))
+      .addSubcommand((s) => s.setName('list').setDescription('Show the watched channels.'))
+      .addSubcommand((s) => s.setName('clear').setDescription('Watch ALL channels again (clear the list).')))
   .addSubcommand((s) =>
     s.setName('settings').setDescription('Show the current configuration.'));
 

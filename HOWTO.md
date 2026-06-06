@@ -143,7 +143,7 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 | `/tattletale badword remove\|list\|clear` | Remove one / show all / clear all bad words. |
 | `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **good word** (safe, notify-only, **no Judge**). Optional per-word channel + ping. |
 | `/tattletale goodword remove\|list\|clear` | Remove one / show all / clear all good words. |
-| `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
+| `/tattletale toggle feature:<deletes\|edits\|badwords\|debug> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
 | `/tattletale judge enabled:<true\|false>` | Turn contextual judging on or off. |
 | `/tattletale judgethreshold value:<0–1>` | Set how confident the Judge must be before it alerts. |
 | `/tattletale judgewords add phrase:<text>` | Add a scam/harassment phrase that triggers Judge review. |
@@ -151,6 +151,7 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 | `/tattletale judgewords edit old:<text> new:<text>` | Replace one Judge trigger phrase with another. |
 | `/tattletale judgewords list` | Show all Judge trigger phrases. |
 | `/tattletale judgewords clear` | Reset the Judge trigger list to the built-in defaults. |
+| `/tattletale watch add\|remove\|list\|clear` | Choose which channels the bot monitors. Empty list = **all** channels (default); add channels to restrict it. |
 | `/tattletale settings` | Show the current configuration. |
 
 > All replies are **ephemeral** — only you see them, so configuring the bot

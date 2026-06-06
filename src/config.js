@@ -68,9 +68,14 @@ const DEFAULTS = {
   //   badWords  = bad words; ALWAYS AI-checked so a severity tier is determined.
   goodWords: [],
   badWords: [],
+  // Channels the bot monitors ("reads"). Empty = watch every channel it can see.
+  // When non-empty, only these channels (and their threads) are screened/logged.
+  watchChannels: [],
   logDeletes: true,
   logEdits: true,
   logBadWords: true,
+  // Verbose debug logging (gateway firehose + per-command access diagnostic).
+  debugLogging: false,
   // AI contextual scam/abuse detection (off by default; costs API usage).
   aiEnabled: false,
   // Minimum confidence (0–1) the AI must report before a message is flagged.
@@ -184,9 +189,46 @@ export function channelForTier(serverId, tier) {
 }
 
 export function setToggle(serverId, key, value) {
-  // key is one of: logDeletes, logEdits, logBadWords
+  // key is one of: logDeletes, logEdits, logBadWords, debugLogging
   getServer(serverId)[key] = value;
   persist();
+}
+
+// True if ANY loaded server has debug logging on (used to gate the global gateway
+// firehose, which isn't tied to a specific server).
+export function anyDebugEnabled() {
+  return Object.values(settings).some((s) => s?.debugLogging === true);
+}
+
+// --- Watched channels (which channels the bot monitors). Empty = all. ---
+
+export function addWatchChannel(serverId, channelId) {
+  const s = getServer(serverId);
+  if (s.watchChannels.includes(channelId)) return { ok: false, reason: 'exists' };
+  s.watchChannels.push(channelId);
+  persist();
+  return { ok: true };
+}
+
+export function removeWatchChannel(serverId, channelId) {
+  const s = getServer(serverId);
+  const i = s.watchChannels.indexOf(channelId);
+  if (i === -1) return { ok: false, reason: 'missing' };
+  s.watchChannels.splice(i, 1);
+  persist();
+  return { ok: true };
+}
+
+export function listWatchChannels(serverId) {
+  return [...getServer(serverId).watchChannels];
+}
+
+export function clearWatchChannels(serverId) {
+  const s = getServer(serverId);
+  const n = s.watchChannels.length;
+  s.watchChannels = [];
+  persist();
+  return n;
 }
 
 // --- Good / bad word management (case-insensitive, stored lowercased) ---

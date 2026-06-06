@@ -31,6 +31,11 @@ import {
   editAiTrigger,
   clearAiTriggers,
   listAiTriggers,
+  anyDebugEnabled,
+  addWatchChannel,
+  removeWatchChannel,
+  listWatchChannels,
+  clearWatchChannels,
 } from './config.js';
 import { classifyMessage } from './ai.js';
 
@@ -99,6 +104,14 @@ function truncate(text, max = 1024) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+// Whether the bot should monitor a given channel. Empty watch list = watch every
+// channel; otherwise only listed channels (and threads whose parent is listed).
+function watched(serverId, channel) {
+  const list = listWatchChannels(serverId);
+  if (!list.length) return true;
+  return list.includes(channel?.id) || (channel?.parentId && list.includes(channel.parentId));
+}
+
 // Pure severity decision (extracted so it can be unit-tested):
 //   high   = bad word AND AI confirmed harmful
 //   medium = AI confirmed harmful with no bad word (caught via AI trigger)
@@ -147,6 +160,7 @@ client.once(Events.ClientReady, (c) => {
 // `origin` is shown in the alert ('posted' vs 'edited').
 async function screenMessage(message, origin = 'posted') {
   if (message.author?.bot || !message.guild || !message.content) return;
+  if (!watched(message.guild.id, message.channel)) return;
   const settings = getServer(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
@@ -224,6 +238,7 @@ client.on(Events.MessageCreate, (message) => screenMessage(message, 'posted'));
 client.on(Events.MessageDelete, async (message) => {
   if (!message.guild || message.author?.bot) return;
   if (!getServer(message.guild.id).logDeletes) return;
+  if (!watched(message.guild.id, message.channel)) return;
 
   const embed = new EmbedBuilder()
     .setTitle('🗑️ Message deleted')
@@ -243,6 +258,7 @@ client.on(Events.MessageDelete, async (message) => {
 client.on(Events.MessageBulkDelete, async (messages, channel) => {
   const server = channel.guild;
   if (!server || !getServer(server.id).logDeletes) return;
+  if (!watched(server.id, channel)) return;
 
   const human = [...messages.values()].filter((m) => !m.author?.bot);
   const lines = human.slice(0, 15).map((m) => {
@@ -283,6 +299,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   }
   if (newMessage.author?.bot) return;
   if (!oldMessage.partial && oldMessage.content === newMessage.content) return;
+  if (!watched(newMessage.guild.id, newMessage.channel)) return;
 
   if (getServer(newMessage.guild.id).logEdits) {
     const embed = new EmbedBuilder()
@@ -325,9 +342,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // --- Access diagnostic (opt-in) ----------------------------------------------
   // Logs who invoked the command, the requirement, whether they meet it (and how),
   // and whether they used the SERVER command (permission-locked) or a stale GLOBAL
-  // command (no lock). Off by default; set LOG_ACCESS_DIAG=true to re-enable when
-  // debugging who can run the commands. Posts to the alert channel + console.
-  if (process.env.LOG_ACCESS_DIAG === 'true') try {
+  // command (no lock). Off by default; enable with `/tattletale toggle feature:debug`
+  // (or LOG_ACCESS_DIAG=true). Posts to the alert channel + console.
+  if (process.env.LOG_ACCESS_DIAG === 'true' || getServer(serverId).debugLogging) try {
     const cmdPath = ['/tattletale', group, sub].filter(Boolean).join(' ');
     const hasManageServer = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
     const isAdmin = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
@@ -416,6 +433,37 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
         default:
           return reply(interaction, 'Unknown judgewords subcommand.');
+      }
+    }
+
+    // --- Watched channels: /tattletale watch <add|remove|list|clear> ---
+    if (group === 'watch') {
+      switch (sub) {
+        case 'add': {
+          const channel = interaction.options.getChannel('channel');
+          const r = addWatchChannel(serverId, channel.id);
+          if (!r.ok) return reply(interaction, `${channel} is already on the watch list.`);
+          return reply(interaction, `✅ Now watching ${channel} (and its threads). The bot now monitors **only** the channels on the watch list — run \`/tattletale watch clear\` to go back to watching everything.`);
+        }
+        case 'remove': {
+          const channel = interaction.options.getChannel('channel');
+          const r = removeWatchChannel(serverId, channel.id);
+          if (!r.ok) return reply(interaction, `${channel} is not on the watch list.`);
+          const remaining = listWatchChannels(serverId).length;
+          const tail = remaining === 0 ? ' The watch list is now empty, so the bot watches **all** channels again.' : '';
+          return reply(interaction, `✅ Stopped watching ${channel}.${tail}`);
+        }
+        case 'list': {
+          const ids = listWatchChannels(serverId);
+          if (!ids.length) return reply(interaction, 'Watch list is empty — the bot monitors **all** channels it can see. Add one with `/tattletale watch add`.');
+          return reply(interaction, `**Watched channels (${ids.length}):**\n${ids.map((id) => `<#${id}>`).join(', ')}\n*(Only these channels + their threads are monitored.)*`);
+        }
+        case 'clear': {
+          const n = clearWatchChannels(serverId);
+          return reply(interaction, `✅ Cleared ${n} watched channel(s). The bot now monitors **all** channels it can see.`);
+        }
+        default:
+          return reply(interaction, 'Unknown watch subcommand.');
       }
     }
 
@@ -515,8 +563,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case 'toggle': {
         const feature = interaction.options.getString('feature');
         const enabled = interaction.options.getBoolean('enabled');
-        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords' };
+        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords', debug: 'debugLogging' };
         setToggle(serverId, map[feature], enabled);
+        if (feature === 'debug') {
+          return reply(interaction, `✅ Debug logging is now **${enabled ? 'ON' : 'OFF'}** (gateway firehose + per-command access diagnostic).`);
+        }
         return reply(interaction, `✅ Logging for **${feature}** is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
       case 'judge': {
@@ -551,11 +602,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `• 🔴 High alerts: ${tierCh(s.alertChannelHigh)}`,
             `• 🟠 Medium alerts: ${tierCh(s.alertChannelMedium)}`,
             `• 🟡 Low/harmless alerts: ${tierCh(s.alertChannelLow)}`,
+            `Watching: ${s.watchChannels.length ? s.watchChannels.map((id) => `<#${id}>`).join(', ') : '*all channels*'}`,
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
             `Log bad words: ${s.logBadWords ? 'ON' : 'OFF'}`,
             `Judging: ${s.aiEnabled ? 'ON' : 'OFF'}`,
             `Judge threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
+            `Debug logging: ${s.debugLogging ? 'ON' : 'OFF'}`,
             `✅ Good words: ${s.goodWords.length} · 🚫 Bad words: ${s.badWords.length} · 🤖 Judge triggers: ${s.aiTriggers.length}`,
             'Command access: Manage Server by default — manage extra roles in Server Settings → Integrations → Tattletale.',
             `Storage: ${persistence}`,
@@ -656,12 +709,12 @@ if (isMain) {
   }, 30000).unref();
 
   // Firehose: discord.js internal gateway log (heartbeats, resumes, session
-  // invalidations, rate limits). Off by default — set LOG_DISCORD_DEBUG=true to
-  // re-enable it when chasing a connection issue. Gateway warnings stay on.
+  // invalidations, rate limits). Off by default — enable per server with
+  // `/tattletale toggle feature:debug` (or globally with LOG_DISCORD_DEBUG=true).
+  // The listener is always attached but only prints when debug is on. Warnings stay on.
+  const debugForced = process.env.LOG_DISCORD_DEBUG === 'true';
   client.on(Events.Warn, (m) => console.warn('[discord:warn]', m));
-  if (process.env.LOG_DISCORD_DEBUG === 'true') {
-    client.on(Events.Debug, (m) => console.log('[discord:debug]', m));
-  }
+  client.on(Events.Debug, (m) => { if (debugForced || anyDebugEnabled()) console.log('[discord:debug]', m); });
 
   // Tiny HTTP server so platform healthchecks (e.g. Railway) get a 200 response.
   // A Discord bot has no web server of its own, so without this a configured
