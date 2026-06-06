@@ -91,10 +91,14 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 - Toggles: `deletes`, `edits`, `badwords` (each on by default).
 - AI contextual detection (off by default; needs `ANTHROPIC_API_KEY`), with a
   configurable confidence threshold.
-- Command access uses **OR** logic: **Manage Server** can always use the commands;
-  an optional role allowlist lets extra roles in too (empty = Manage Server only).
-  Enforced in code; no `setDefaultMemberPermissions` is set so allowed-role members
-  without Manage Server can still see/use the command.
+- Command access uses **OR** logic enforced in code: **Manage Server** can always
+  use the commands; an optional role allowlist (`/tattletale allowrole`) lets extra
+  roles in too (empty = Manage Server only). The command also sets
+  `setDefaultMemberPermissions(ManageGuild)` so Discord **hides** it from non–Manage
+  Server members by default. Discord can only gate command *visibility* by
+  permission, not by role — so revealing it to a non-admin role requires a server
+  admin to add that role under Server Settings → Integrations → Tattletale (the
+  in-code allowlist still enforces usage).
 
 ### Slash commands (`/tattletale`)
 
@@ -153,8 +157,9 @@ These fixes exist because of real production issues; do not regress them:
   - Renamed the AI commands to **judge / judgethreshold / judgewords** and
     rebranded all user-facing "AI" wording to "judge/judging".
   - **Access model:** Manage Server can always use the commands; an optional role
-    allowlist lets extra roles in too (OR logic; empty = Manage Server only). No
-    `setDefaultMemberPermissions` so allowed-role members without Manage Server
-    can still use it.
+    allowlist lets extra roles in too (OR logic; empty = Manage Server only).
+    `setDefaultMemberPermissions(ManageGuild)` hides the command from non–Manage
+    Server members (Discord can't gate visibility by role; use Server Settings →
+    Integrations to reveal it to a specific role).
 - **1.0.0** — Initial bot: delete/edit/bulk-delete logging, flagged-word alerts,
   optional AI detection, role allowlist, per-guild persisted settings.

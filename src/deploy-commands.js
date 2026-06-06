@@ -8,15 +8,19 @@ import {
   Routes,
   SlashCommandBuilder,
   ChannelType,
+  PermissionFlagsBits,
 } from 'discord.js';
 
-// No setDefaultMemberPermissions so members who hold an allowed role (but not
-// Manage Server) can still see/use the command — access is enforced in code:
-// Manage Server can ALWAYS use it; an empty allowlist means Manage Server only,
-// and any role added to the allowlist may use the commands too (OR logic).
+// setDefaultMemberPermissions(ManageGuild): by default Discord only SHOWS and
+// allows the command for members with Manage Server. Discord can only gate a
+// command's visibility by PERMISSION, not by role — so to also reveal it to a
+// specific role (without Manage Server), a server admin must add that role under
+// Server Settings → Integrations → Tattletale. Our in-code allowlist
+// (/tattletale allowrole) still enforces the OR rule for anyone who can invoke it.
 const command = new SlashCommandBuilder()
   .setName('tattletale')
   .setDescription('Configure the Tattletale moderation bot.')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
   .addSubcommand((s) =>
     s.setName('setchannel')
       .setDescription('Set where alerts go (optionally per severity tier).')

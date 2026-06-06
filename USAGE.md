@@ -174,8 +174,13 @@ only Manage Server members can use it:
 
 Manage Server always works regardless of the allowlist, so you can't lock
 yourself out.
-You can also restrict the command in **Server Settings → Integrations →
-TattleTaleBot → Commands**, which is enforced by Discord itself.
+
+**Visibility note:** the command is hidden from members without Manage Server
+(Discord shows commands by *permission*, not by *role*). `/tattletale allowrole`
+controls *usage* in the bot, but to make the command *appear* for a non-admin
+role, add that role under **Server Settings → Integrations → Tattletale →
+Commands** (Discord's native, role-based command permissions). Simplest option:
+give trusted mods the Manage Server permission.
 
 ---
 

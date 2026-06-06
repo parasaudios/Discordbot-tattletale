@@ -368,6 +368,26 @@ allowlist is empty, so only Manage Server members can use it.
 > You can't lock yourself out: Manage Server always works regardless of the
 > allowlist, so an admin can always fix access.
 
+### Visibility vs. usage (important Discord limitation)
+
+The command is registered with a default permission of **Manage Server**, so
+Discord **hides** `/tattletale` from members without Manage Server — they won't
+even see it in the slash-command list, and the bot's code also rejects them.
+
+**Discord only lets a bot hide/show a command by *permission*, not by *role*.**
+So `/tattletale allowrole` controls *usage* in the bot's code, but it cannot make
+the command *appear* for a non-admin role on its own. To also show it to a
+specific role that doesn't have Manage Server:
+
+1. **Server Settings → Integrations → Tattletale** → pick the command(s) →
+   add the role under the permission overrides. (This is Discord's native,
+   role-based command visibility — only a server admin can set it.)
+2. Then also run `/tattletale allowrole role:@ThatRole` so the bot's own check
+   permits them.
+
+If your "allowed" people are trusted mods, the simplest path is to just give them
+the **Manage Server** permission — then they see and use it with no extra steps.
+
 ---
 
 ## Part H — Every setting at a glance
