@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   REST,
@@ -131,9 +131,18 @@ const command = new SlashCommandBuilder()
       .addRoleOption((o) =>
         o.setName('role').setDescription('Role to remove').setRequired(true)))
   .addSubcommand((s) =>
-    s.setName('settings').setDescription('Show the current configuration.'))
-  .toJSON();
+    s.setName('settings').setDescription('Show the current configuration.'));
 
+// Exported so tests/tools can inspect the command definition without triggering
+// a live registration. The deploy side-effects below only run when this file is
+// executed directly (npm run deploy), not when imported.
+export { command };
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) await deploy();
+
+async function deploy() {
+const body = [command.toJSON()];
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.CLIENT_ID;
 const guildId = process.env.GUILD_ID;
@@ -144,7 +153,6 @@ if (!token || !clientId) {
 }
 
 const rest = new REST({ version: '10' }).setToken(token);
-const body = [command];
 
 // Utility: `npm run deploy -- --clear-global` removes any leftover GLOBAL command
 // copies (e.g. registered before GUILD_ID was set) that can duplicate or confuse
@@ -188,4 +196,5 @@ if (!force && readHash() === hash) {
   } catch (error) {
     console.error(error);
   }
+}
 }

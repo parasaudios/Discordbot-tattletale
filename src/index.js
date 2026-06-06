@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { pathToFileURL } from 'node:url';
 import {
   Client,
   GatewayIntentBits,
@@ -93,6 +94,19 @@ function truncate(text, max = 1024) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+// Pure severity decision (extracted so it can be unit-tested):
+//   high   = bad word AND AI confirmed harmful
+//   medium = AI confirmed harmful with no bad word (caught via AI trigger)
+//   low    = bad word not confirmed harmful, OR an AI-trigger msg cleared as harmless
+//   null   = nothing severity-worthy
+function decideTier({ badHit, aiHarmful, aiCleared }) {
+  if (badHit && aiHarmful) return 'high';
+  if (aiHarmful) return 'medium';
+  if (badHit) return 'low';
+  if (aiCleared) return 'low';
+  return null;
+}
+
 // Post an embed to a specific channel id (defaults to the guild's main alert
 // channel when no id is given). `notify` is an optional mention string
 // (<@user> or <@&role>) to ping alongside the alert.
@@ -169,14 +183,7 @@ async function screenMessage(message, origin = 'posted') {
   const aiCleared = Boolean(aiResult && !aiHarmful);
 
   // Decide whether to emit a severity (bad/AI) alert, and which tier.
-  //   high   = bad word AND AI confirmed harmful
-  //   medium = AI confirmed harmful with no bad word (caught via AI trigger)
-  //   low    = bad word but not confirmed harmful, OR an AI-trigger msg cleared as harmless
-  let tier = null;
-  if (badHit && aiHarmful) tier = 'high';
-  else if (aiHarmful) tier = 'medium';
-  else if (badHit) tier = 'low';
-  else if (aiCleared) tier = 'low';
+  const tier = decideTier({ badHit: Boolean(badHit), aiHarmful, aiCleared });
   if (!tier) return; // nothing severity-worthy
 
   const fields = baseFields();
@@ -535,23 +542,31 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-const token = process.env.DISCORD_TOKEN;
-if (!token) {
-  console.error('❌ Missing DISCORD_TOKEN. Set it in your host\'s Variables (or .env locally).');
-  process.exit(1);
-}
+// Only connect to Discord when run directly (npm start) — importing this module
+// for tests/tooling should not attempt a login. screenMessage/findMatch/decideTier
+// are exported so the screening logic can be unit-tested in isolation.
+export { screenMessage, findMatch, decideTier };
 
-// Log in with a clear, actionable message if it fails, so a crashed deploy says
-// *why* in the logs instead of dumping a raw stack trace.
-client.login(token).catch((err) => {
-  const msg = err?.message || String(err);
-  console.error('❌ Could not log in to Discord.');
-  if (err?.code === 'TokenInvalid' || /invalid token/i.test(msg)) {
-    console.error('   → The DISCORD_TOKEN is invalid or expired. Reset it in the Developer Portal (Bot → Reset Token) and update the Variables/.env.');
-  } else if (err?.code === 'DisallowedIntents' || /disallowed intents/i.test(msg)) {
-    console.error('   → Enable the Message Content Intent (Developer Portal → Bot → Privileged Gateway Intents), then redeploy.');
-  } else {
-    console.error('   →', msg);
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  const token = process.env.DISCORD_TOKEN;
+  if (!token) {
+    console.error('❌ Missing DISCORD_TOKEN. Set it in your host\'s Variables (or .env locally).');
+    process.exit(1);
   }
-  process.exit(1);
-});
+
+  // Log in with a clear, actionable message if it fails, so a crashed deploy says
+  // *why* in the logs instead of dumping a raw stack trace.
+  client.login(token).catch((err) => {
+    const msg = err?.message || String(err);
+    console.error('❌ Could not log in to Discord.');
+    if (err?.code === 'TokenInvalid' || /invalid token/i.test(msg)) {
+      console.error('   → The DISCORD_TOKEN is invalid or expired. Reset it in the Developer Portal (Bot → Reset Token) and update the Variables/.env.');
+    } else if (err?.code === 'DisallowedIntents' || /disallowed intents/i.test(msg)) {
+      console.error('   → Enable the Message Content Intent (Developer Portal → Bot → Privileged Gateway Intents), then redeploy.');
+    } else {
+      console.error('   →', msg);
+    }
+    process.exit(1);
+  });
+}
