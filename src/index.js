@@ -193,8 +193,8 @@ async function screenMessage(message, origin = 'posted') {
     const verdict = aiHarmful
       ? `${aiResult.category} (${Math.round(aiResult.confidence * 100)}%)`
       : `harmless (${aiResult.category || 'none'})`;
-    fields.push({ name: "Berry's Delicious Coochie's Verdict", value: verdict, inline: true });
-    if (aiResult.reason) fields.push({ name: "Berry's Super Sexy Butt's Reasoning", value: truncate(aiResult.reason, 256) });
+    fields.push({ name: 'Verdict', value: verdict, inline: true });
+    if (aiResult.reason) fields.push({ name: 'Reasoning', value: truncate(aiResult.reason, 256) });
   }
   fields.push(
     { name: 'Message', value: truncate(message.content) },
