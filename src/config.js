@@ -43,9 +43,17 @@ export const DEFAULT_AI_TRIGGERS = [
   'claim your', 'crypto', 'wallet', 'seed phrase', 'dm me', 'click here',
   'verify your', 'account will be', 'free robux', 'steam gift',
   'password reset', 'login here',
-  // Harassment / abuse signals
+  // Harassment / threats
   'kill yourself', 'kys', 'go die', 'you should die', 'neck yourself',
-  'nobody likes you', 'worthless', 'i hate you', 'retard', 'loser',
+  'nobody likes you', 'i hate you',
+  // Profanity / insults — the AI still judges intent, so casual swearing among
+  // friends won't be flagged; only messages it reads as genuinely abusive are.
+  'fuck', 'shit', 'cunt', 'bitch', 'asshole', 'dickhead', 'bastard',
+  'slut', 'whore', 'prick', 'douche', 'stupid', 'idiot', 'moron',
+  'dumbass', 'jackass', 'pathetic', 'ugly', 'worthless', 'piece of',
+  'shut up', 'retard', 'loser',
+  // Slurs (common harassment vectors)
+  'faggot', 'tranny', 'nigger', 'nigga',
 ];
 
 const DEFAULTS = {
