@@ -34,7 +34,7 @@ that a server admin selects with `/tattletale setchannel`.
    ```
 7. In your server, run `/tattletale setchannel` and pick the channel where mod alerts
    should appear. (By default only members with **Manage Server** can use the
-   commands — allow extra roles with `/tattletale allowrole`.)
+   commands — grant extra roles in Server Settings → Integrations → Tattletale.)
 
 ## Configuration
 
@@ -50,7 +50,7 @@ Quick start:
 /tattletale settings                         # view current config
 ```
 
-By default only members with **Manage Server** can use the commands; allow extra roles with `/tattletale allowrole`.
+By default only members with **Manage Server** can use the commands; grant extra roles/members via Discord's Server Settings → Integrations → Tattletale.
 
 ## Notes
 

@@ -68,8 +68,8 @@ If alerts don't appear, the bot most likely can't see or post in that channel.
 ## 4. Commands
 
 All commands are subcommands of `/tattletale`. By default only members with
-**Manage Server** can use them; add a role allowlist (`/tattletale allowrole`) to
-let extra roles in too. Responses are private (only you see them).
+**Manage Server** can use them; grant extra roles/members in Discord's **Server
+Settings → Integrations**. Responses are private (only you see them).
 
 | Command | What it does |
 |---------|--------------|
@@ -80,8 +80,6 @@ let extra roles in too. Responses are private (only you see them).
 | `/tattletale judge enabled:<true\|false>` | Turn contextual scam/abuse judging on or off (needs an API key on the host). |
 | `/tattletale judgethreshold value:<0–1>` | How sure the Judge must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
 | `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger Judge review. `clear` restores the built-in defaults. |
-| `/tattletale allowrole role:<@role>` | Let a role use the commands too (Manage Server can always use them). Empty allowlist = Manage Server only. |
-| `/tattletale denyrole role:<@role>` | Remove a role from the allowlist (empty again = Manage Server only). |
 | `/tattletale settings` | Show the current configuration. |
 
 ---
@@ -165,22 +163,16 @@ How it works and what it costs:
 
 ## 6b. Restricting who can use the bot
 
-Access uses **OR** logic: anyone with **Manage Server** can always use
-`/tattletale`, plus any roles you allow. By default the allowlist is empty, so
-only Manage Server members can use it:
+Access is handled by **Discord's native command permissions** — the bot has no
+separate allowlist. By default the command requires **Manage Server**, so Discord
+hides and blocks it for everyone else.
 
-- Allow a role: `/tattletale allowrole role:@Bot Admin`
-- Remove a role: `/tattletale denyrole role:@Bot Admin`
+To allow a specific role/member (with or without Manage Server), a server admin
+opens **Server Settings → Integrations → Tattletale**, then adds the role(s) or
+member(s) under the command's permission overrides. Discord enforces this itself.
 
-Manage Server always works regardless of the allowlist, so you can't lock
-yourself out.
-
-**Visibility note:** the command is hidden from members without Manage Server
-(Discord shows commands by *permission*, not by *role*). `/tattletale allowrole`
-controls *usage* in the bot, but to make the command *appear* for a non-admin
-role, add that role under **Server Settings → Integrations → Tattletale →
-Commands** (Discord's native, role-based command permissions). Simplest option:
-give trusted mods the Manage Server permission.
+Simplest option: give trusted mods the **Manage Server** permission — then they
+see and use it with no extra setup.
 
 ---
 
@@ -205,8 +197,9 @@ give trusted mods the Manage Server permission.
   enabled in the Developer Portal (see `README.md`).
 - **`/tattletale` doesn't show up** — An admin needs to run `npm run deploy` once
   to register commands. Global commands can take up to an hour to appear.
-- **"You need the Manage Server permission or an allowed role"** — You have
-  neither. An admin (Manage Server) can `/tattletale allowrole` a role you hold.
+- **Can't see/use `/tattletale`** — You lack **Manage Server** and haven't been
+  granted the command. An admin can allow your role in **Server Settings →
+  Integrations → Tattletale**.
 - **A keyword over-matches** — Matching is substring-based and evasion-resistant,
   so short entries can flag bigger words. Use more specific entries.
 

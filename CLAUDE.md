@@ -91,20 +91,17 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 - Toggles: `deletes`, `edits`, `badwords` (each on by default).
 - AI contextual detection (off by default; needs `ANTHROPIC_API_KEY`), with a
   configurable confidence threshold.
-- Command access uses **OR** logic enforced in code: **Manage Server** can always
-  use the commands; an optional role allowlist (`/tattletale allowrole`) lets extra
-  roles in too (empty = Manage Server only). The command also sets
-  `setDefaultMemberPermissions(ManageGuild)` so Discord **hides** it from non–Manage
-  Server members by default. Discord can only gate command *visibility* by
-  permission, not by role — so revealing it to a non-admin role requires a server
-  admin to add that role under Server Settings → Integrations → Tattletale (the
-  in-code allowlist still enforces usage).
+- Command access is **handled natively by Discord** (no in-code allowlist). The
+  command sets `setDefaultMemberPermissions(ManageGuild)`, so by default only
+  Manage Server members see/use it; a server admin grants extra roles/members via
+  Server Settings → Integrations → Tattletale. The interaction handler runs no
+  permission gate of its own — any interaction Discord delivers is already authorized.
 
 ### Slash commands (`/tattletale`)
 
 `setchannel [tier]`, `badword add|remove|list|clear`, `goodword add|remove|list|clear`,
 `judgewords add|remove|edit|list|clear`, `toggle`, `judge`, `judgethreshold`,
-`allowrole`, `denyrole`, `settings`. `add` for good/bad words takes optional
+`settings`. `add` for good/bad words takes optional
 `channel:` and `notify:` (mentionable). Re-register only when the command
 *structure* changes (adding words at runtime does not).
 
@@ -156,10 +153,9 @@ These fixes exist because of real production issues; do not regress them:
     healthcheck HTTP server.
   - Renamed the AI commands to **judge / judgethreshold / judgewords** and
     rebranded all user-facing "AI" wording to "judge/judging".
-  - **Access model:** Manage Server can always use the commands; an optional role
-    allowlist lets extra roles in too (OR logic; empty = Manage Server only).
-    `setDefaultMemberPermissions(ManageGuild)` hides the command from non–Manage
-    Server members (Discord can't gate visibility by role; use Server Settings →
-    Integrations to reveal it to a specific role).
+  - **Access model:** removed the custom in-code role allowlist
+    (`allowrole`/`denyrole`) in favour of Discord-native command permissions —
+    `setDefaultMemberPermissions(ManageGuild)` by default; extra roles/members
+    granted via Server Settings → Integrations → Tattletale.
 - **1.0.0** — Initial bot: delete/edit/bulk-delete logging, flagged-word alerts,
   optional AI detection, role allowlist, per-guild persisted settings.

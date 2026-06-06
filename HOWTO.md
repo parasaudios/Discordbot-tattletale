@@ -131,8 +131,8 @@ In the **Developer Portal → Bot → Privileged Gateway Intents**, enable:
 
 All configuration is done with subcommands of **`/tattletale`**, typed in any
 channel the bot can see. By default only members with **Manage Server** can use
-them; add a role allowlist to let extra roles in too (see
-[Part G](#part-g--restricting-who-can-use-the-bot)).
+them; grant extra roles/members via Discord's **Server Settings → Integrations**
+(see [Part G](#part-g--restricting-who-can-use-the-bot)).
 
 ### Command reference
 
@@ -151,8 +151,6 @@ them; add a role allowlist to let extra roles in too (see
 | `/tattletale judgewords edit old:<text> new:<text>` | Replace one Judge trigger phrase with another. |
 | `/tattletale judgewords list` | Show all Judge trigger phrases. |
 | `/tattletale judgewords clear` | Reset the Judge trigger list to the built-in defaults. |
-| `/tattletale allowrole role:<@role>` | Let a role use the commands too (Manage Server can always use them). Empty allowlist = Manage Server only. |
-| `/tattletale denyrole role:<@role>` | Remove a role from the allowlist (empty again = Manage Server only). |
 | `/tattletale settings` | Show the current configuration. |
 
 > All replies are **ephemeral** — only you see them, so configuring the bot
@@ -347,46 +345,25 @@ The value is clamped to the 0–1 range and shown in `/tattletale settings`.
 
 ## Part G — Restricting who can use the bot
 
-Access uses **OR** logic: anyone with **Manage Server** can *always* use
-`/tattletale`, and you can additionally allow specific roles. By default the
-allowlist is empty, so only Manage Server members can use it.
+Access is handled entirely by **Discord's native command permissions** — the bot
+keeps no separate allowlist. The command is registered with a default permission
+of **Manage Server**, so by default Discord **hides and blocks** `/tattletale`
+for everyone except members with Manage Server.
 
-**Allow a role** (lets that role in, on top of Manage Server)
-```
-/tattletale allowrole role:@Bot Admin
-```
-→ ✅ @Bot Admin can now use the bot's commands (in addition to anyone with Manage Server).
+To grant access to a specific **role or member** (with or without Manage Server),
+a server admin uses Discord's built-in command-permission UI:
 
-**Remove a role from the allowlist**
-```
-/tattletale denyrole role:@Bot Admin
-```
+1. **Server Settings → Integrations → Tattletale** (or **Apps**).
+2. Click **Manage** / the command list, then add the role(s), member(s), or
+   channel(s) you want to allow (and/or remove the default restriction).
+3. Save. Discord enforces this itself — no bot command needed.
 
-- **Empty allowlist** (default) → **Manage Server only**.
-- **Non-empty allowlist** → **Manage Server OR** any listed role.
+This is Discord's official way to control who can see and run a slash command,
+and it supports per-role, per-member, and per-channel overrides.
 
-> You can't lock yourself out: Manage Server always works regardless of the
-> allowlist, so an admin can always fix access.
-
-### Visibility vs. usage (important Discord limitation)
-
-The command is registered with a default permission of **Manage Server**, so
-Discord **hides** `/tattletale` from members without Manage Server — they won't
-even see it in the slash-command list, and the bot's code also rejects them.
-
-**Discord only lets a bot hide/show a command by *permission*, not by *role*.**
-So `/tattletale allowrole` controls *usage* in the bot's code, but it cannot make
-the command *appear* for a non-admin role on its own. To also show it to a
-specific role that doesn't have Manage Server:
-
-1. **Server Settings → Integrations → Tattletale** → pick the command(s) →
-   add the role under the permission overrides. (This is Discord's native,
-   role-based command visibility — only a server admin can set it.)
-2. Then also run `/tattletale allowrole role:@ThatRole` so the bot's own check
-   permits them.
-
-If your "allowed" people are trusted mods, the simplest path is to just give them
-the **Manage Server** permission — then they see and use it with no extra steps.
+> The simplest option: give trusted mods the **Manage Server** permission — then
+> they see and use it with no extra setup. Use the Integrations overrides only
+> when you want someone to have bot access *without* Manage Server.
 
 ---
 
@@ -407,7 +384,7 @@ through the commands above (no manual editing needed).
 | judging | **OFF** | `/tattletale judge` |
 | Judge confidence threshold | **0.6** | `/tattletale judgethreshold` |
 | Judge trigger phrases | built-in default set | `/tattletale judgewords add` / `remove` / `edit` / `list` / `clear` |
-| Command access | Manage Server only (default); + allowlisted roles | `/tattletale allowrole` / `denyrole` |
+| Command access | Manage Server (default) | Discord-native — Server Settings → Integrations → Tattletale |
 
 View the live values any time:
 ```
@@ -424,7 +401,7 @@ View the live values any time:
 | **Alerts stopped / never post to the channel** | The bot lacks **View Channel / Send Messages / Embed Links** in the alert channel. Re-run `/tattletale setchannel` — it warns about missing permissions. |
 | **Keyword & judging do nothing** | **Message Content Intent** isn't enabled in the Developer Portal (Bot → Privileged Gateway Intents). |
 | **`/tattletale` doesn't show up** | Registration runs automatically on start, but global commands can take ~1 hour to appear; set `GUILD_ID` for instant registration. If still missing, redeploy/restart the bot (or run `npm run deploy`) and check the logs for a registration error. |
-| **"You need the Manage Server permission or an allowed role"** | You have neither Manage Server nor an allowlisted role. Get an admin (Manage Server) to `/tattletale allowrole` a role you hold. |
+| **Can't see / use `/tattletale`** | You don't have **Manage Server** and haven't been granted the command. A server admin can allow your role/account in **Server Settings → Integrations → Tattletale**. |
 | **Judge won't enable** | `ANTHROPIC_API_KEY` isn't set on the host. Add it, restart, then `/tattletale judge enabled:true`. |
 | **Settings reset after a redeploy** | Set `DATA_DIR` to a persistent/mounted volume so `settings.json` survives. |
 | **Deleted/edited message shows "Unknown (uncached)"** | The message was posted before the bot started (not in its cache), so Discord can't supply the original author/content. New messages are unaffected. |

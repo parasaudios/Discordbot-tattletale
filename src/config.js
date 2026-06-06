@@ -24,7 +24,7 @@ try {
 //
 // Shape (per guild): alertChannelId + per-tier channels, goodWords/badWords as
 // { word, channelId, notify }[], aiTriggers as string[], plus toggles
-// (logDeletes/logEdits/logBadWords), aiEnabled/aiThreshold, and allowedRoleIds.
+// (logDeletes/logEdits/logBadWords), and aiEnabled/aiThreshold.
 // Legacy flaggedWords/logFlagged are migrated to badWords/logBadWords on load.
 
 // Built-in scam/harassment signal words & phrases. The AI is only invoked on a
@@ -78,9 +78,6 @@ const DEFAULTS = {
   // Words/phrases that gate the AI: it only runs on messages containing one of
   // these. Seeded from DEFAULT_AI_TRIGGERS; editable per guild.
   aiTriggers: [...DEFAULT_AI_TRIGGERS],
-  // Role IDs allowed to use /tattletale commands, IN ADDITION to anyone with
-  // Manage Server (who can always use them). Empty = Manage Server only.
-  allowedRoleIds: [],
 };
 
 function loadAll() {
@@ -330,25 +327,5 @@ export function storageInfo() {
   };
 }
 
-// --- Role allowlist for command access ---
-
-export function addAllowedRole(guildId, roleId) {
-  const g = getGuild(guildId);
-  if (g.allowedRoleIds.includes(roleId)) return { ok: false, reason: 'exists' };
-  g.allowedRoleIds.push(roleId);
-  persist();
-  return { ok: true };
-}
-
-export function removeAllowedRole(guildId, roleId) {
-  const g = getGuild(guildId);
-  const i = g.allowedRoleIds.indexOf(roleId);
-  if (i === -1) return { ok: false, reason: 'missing' };
-  g.allowedRoleIds.splice(i, 1);
-  persist();
-  return { ok: true };
-}
-
-export function listAllowedRoles(guildId) {
-  return [...getGuild(guildId).allowedRoleIds];
-}
+// Command access is handled natively by Discord (setDefaultMemberPermissions +
+// Server Settings → Integrations), so the bot no longer stores a role allowlist.

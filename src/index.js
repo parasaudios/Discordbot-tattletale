@@ -31,9 +31,6 @@ import {
   editAiTrigger,
   clearAiTriggers,
   listAiTriggers,
-  addAllowedRole,
-  removeAllowedRole,
-  listAllowedRoles,
 } from './config.js';
 import { classifyMessage } from './ai.js';
 
@@ -315,18 +312,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'tattletale') return;
 
-  // Access (OR logic): anyone with Manage Server can ALWAYS use the commands.
-  // If a role allowlist is set, members holding one of those roles may use them too.
-  //   empty allowlist -> only Manage Server
-  //   role(s) added   -> Manage Server OR an allowed role
-  const hasManageServer = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
-  const allowedRoles = listAllowedRoles(interaction.guild.id);
-  const memberRoleIds = interaction.member?.roles?.cache;
-  const hasAllowedRole = allowedRoles.length > 0
-    && Boolean(memberRoleIds && allowedRoles.some((id) => memberRoleIds.has(id)));
-  if (!hasManageServer && !hasAllowedRole) {
-    return reply(interaction, 'You need the **Manage Server** permission or an allowed role to use this bot.');
-  }
+  // Access control is handled by Discord natively: the command is registered with
+  // setDefaultMemberPermissions(ManageGuild), and a server admin can grant extra
+  // roles/members via Server Settings → Integrations → Tattletale. Any interaction
+  // that reaches us has already been authorized by Discord, so there's no extra
+  // permission gate here.
 
   const guildId = interaction.guild.id;
   const group = interaction.options.getSubcommandGroup(false);
@@ -474,27 +464,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
           `✅ Judge confidence threshold set to **${value}**. The Judge must be at least ${Math.round(value * 100)}% sure a message is abusive before it alerts (lower = more sensitive, higher = stricter).`,
         );
       }
-      case 'allowrole': {
-        const role = interaction.options.getRole('role');
-        const r = addAllowedRole(guildId, role.id);
-        if (!r.ok) return reply(interaction, 'That role is already on the allowlist.');
-        return reply(interaction, `✅ ${role} can now use the bot's commands (in addition to anyone with **Manage Server**).`);
-      }
-      case 'denyrole': {
-        const role = interaction.options.getRole('role');
-        const r = removeAllowedRole(guildId, role.id);
-        if (!r.ok) return reply(interaction, 'That role is not on the allowlist.');
-        const remaining = listAllowedRoles(guildId).length;
-        const tail = remaining === 0 ? ' The allowlist is now empty, so only members with **Manage Server** can use the bot.' : '';
-        return reply(interaction, `✅ Removed ${role} from the command allowlist.${tail}`);
-      }
       case 'settings': {
         const s = getGuild(guildId);
         const ch = s.alertChannelId ? `<#${s.alertChannelId}>` : '*not set*';
         const tierCh = (id) => (id ? `<#${id}>` : '↳ default');
-        const roles = s.allowedRoleIds.length
-          ? `Manage Server, or ${s.allowedRoleIds.map((id) => `<@&${id}>`).join(', ')}`
-          : '*Manage Server only*';
         const store = storageInfo();
         const persistence = store.dataDirSet
           ? `✅ saving to \`${store.path}\` (ensure a volume is mounted there so it survives redeploys)`
@@ -513,7 +486,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Judging: ${s.aiEnabled ? 'ON' : 'OFF'}`,
             `Judge threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
             `✅ Good words: ${s.goodWords.length} · 🚫 Bad words: ${s.badWords.length} · 🤖 Judge triggers: ${s.aiTriggers.length}`,
-            `Command access: ${roles}`,
+            'Command access: Manage Server by default — manage extra roles in Server Settings → Integrations → Tattletale.',
             `Storage: ${persistence}`,
           ].join('\n'),
         );

@@ -11,12 +11,11 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 
-// setDefaultMemberPermissions(ManageGuild): by default Discord only SHOWS and
-// allows the command for members with Manage Server. Discord can only gate a
-// command's visibility by PERMISSION, not by role — so to also reveal it to a
-// specific role (without Manage Server), a server admin must add that role under
-// Server Settings → Integrations → Tattletale. Our in-code allowlist
-// (/tattletale allowrole) still enforces the OR rule for anyone who can invoke it.
+// setDefaultMemberPermissions(ManageGuild): by default Discord only shows and
+// allows the command for members with Manage Server. To reveal it to a specific
+// role/member (with or without Manage Server), a server admin uses Discord's
+// native command permissions under Server Settings → Integrations → Tattletale.
+// Access is handled entirely by Discord; the bot keeps no role allowlist.
 const command = new SlashCommandBuilder()
   .setName('tattletale')
   .setDescription('Configure the Tattletale moderation bot.')
@@ -126,16 +125,6 @@ const command = new SlashCommandBuilder()
         s.setName('list').setDescription('Show all Judge trigger phrases.'))
       .addSubcommand((s) =>
         s.setName('clear').setDescription('Reset the Judge trigger list to the built-in defaults.')))
-  .addSubcommand((s) =>
-    s.setName('allowrole')
-      .setDescription('Also let a role use the commands (Manage Server can always use them).')
-      .addRoleOption((o) =>
-        o.setName('role').setDescription('Role allowed to use the bot').setRequired(true)))
-  .addSubcommand((s) =>
-    s.setName('denyrole')
-      .setDescription('Remove a role from the command allowlist.')
-      .addRoleOption((o) =>
-        o.setName('role').setDescription('Role to remove').setRequired(true)))
   .addSubcommand((s) =>
     s.setName('settings').setDescription('Show the current configuration.'));
 
