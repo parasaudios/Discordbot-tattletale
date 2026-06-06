@@ -84,11 +84,17 @@ server and doesn't listen on a port.
 ## Step 5 — Slash-command registration (now automatic)
 
 The `/tattletale` command must be registered with Discord whenever its definition
-changes. **This now happens automatically on every deploy**: the `npm start`
-script runs a `prestart` hook (`node src/deploy-commands.js`) first, so each time
-Railway deploys or restarts the bot, the latest commands are re-registered before
-it comes online. A registration hiccup can't block the bot — the hook is allowed
-to fail without stopping startup.
+changes. **This now happens automatically**: the `npm start` script runs a
+`prestart` hook (`node src/deploy-commands.js`) first, so each deploy registers
+the latest commands before the bot comes online. A registration hiccup can't
+block the bot — the hook is allowed to fail without stopping startup.
+
+To avoid making Discord's client re-sync the command list on every redeploy
+(which causes the "commands take a moment to appear" flicker), registration is
+**skipped when the command definition hasn't changed** — it hashes the command
+and only calls the API when the hash differs (stored at `DATA_DIR/.command-hash`).
+Run `npm run deploy -- --force` to register regardless. Registering to a guild
+(`GUILD_ID` set) makes changes appear instantly; global commands can take ~1 hour.
 
 So on Railway you don't need to do anything here. If you ever want to register
 manually (e.g. from your own machine without restarting the host), you still can:

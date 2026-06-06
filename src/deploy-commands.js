@@ -1,4 +1,8 @@
 import 'dotenv/config';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import {
   REST,
   Routes,
@@ -118,15 +122,35 @@ if (!token || !clientId) {
 }
 
 const rest = new REST({ version: '10' }).setToken(token);
+const body = [command];
 
-try {
-  if (guildId) {
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: [command] });
-    console.log(`Registered /tattletale to guild ${guildId}.`);
-  } else {
-    await rest.put(Routes.applicationCommands(clientId), { body: [command] });
-    console.log('Registered /tattletale globally. May take up to 1 hour to appear.');
+// Re-registering identical commands on every redeploy makes Discord's client
+// re-sync the command list (causing the "commands take a moment to show up"
+// flicker). So we hash the command definition + target and skip the API call
+// when nothing changed. Pass --force to register regardless.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DATA_DIR = process.env.DATA_DIR || join(__dirname, '..');
+const HASH_PATH = join(DATA_DIR, '.command-hash');
+const target = guildId ? `guild:${guildId}` : 'global';
+const hash = createHash('sha256').update(`${target}\n${JSON.stringify(body)}`).digest('hex');
+const force = process.argv.includes('--force');
+
+const readHash = () => { try { return readFileSync(HASH_PATH, 'utf8').trim(); } catch { return null; } };
+const saveHash = () => { try { mkdirSync(DATA_DIR, { recursive: true }); writeFileSync(HASH_PATH, hash); } catch { /* non-fatal */ } };
+
+if (!force && readHash() === hash) {
+  console.log('Slash commands unchanged since last deploy — skipping registration.');
+} else {
+  try {
+    if (guildId) {
+      await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body });
+      console.log(`Registered /tattletale to guild ${guildId} (appears instantly).`);
+    } else {
+      await rest.put(Routes.applicationCommands(clientId), { body });
+      console.log('Registered /tattletale globally. May take up to 1 hour to appear.');
+    }
+    saveHash();
+  } catch (error) {
+    console.error(error);
   }
-} catch (error) {
-  console.error(error);
 }
