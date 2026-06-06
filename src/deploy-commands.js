@@ -149,6 +149,21 @@ if (!token || !clientId) {
 
 const rest = new REST({ version: '10' }).setToken(token);
 
+// In guild mode, proactively remove any leftover GLOBAL copies of the command.
+// A global registration (from before GUILD_ID was set, or an earlier unrestricted
+// version) persists separately from guild commands, is visible to EVERYONE, and
+// ignores the guild command's permission lock — so it must be cleared or it keeps
+// "slipping past" the Manage Server restriction. Runs every deploy (cheap no-op
+// when already empty) and independently of the hash-skip below.
+if (guildId) {
+  try {
+    await rest.put(Routes.applicationCommands(clientId), { body: [] });
+    console.log('Cleared any leftover GLOBAL commands (guild mode — guild commands keep the permission lock).');
+  } catch (error) {
+    console.error('Could not clear global commands:', error?.message || error);
+  }
+}
+
 // Utility: `npm run deploy -- --clear-global` removes any leftover GLOBAL command
 // copies (e.g. registered before GUILD_ID was set) that can duplicate or confuse
 // the client's command picker. Guild commands are left untouched.
