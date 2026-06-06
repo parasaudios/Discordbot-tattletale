@@ -247,7 +247,7 @@ keyword without treating it as an offense.
 > pings them when that word fires. Leave them off to use the default channel.
 
 > **What an alert looks like:** the mod channel gets a colour-coded embed with the
-> user, channel, the matched word, the AI verdict (for bad words), the message,
+> user, channel, the matched word, Berry's Delicious Coochie's Verdict (for bad words), the message,
 > and a jump link. Edits are re-scanned, so words added *after* posting still fire.
 
 ---
