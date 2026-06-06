@@ -78,8 +78,8 @@ const DEFAULTS = {
   // Words/phrases that gate the AI: it only runs on messages containing one of
   // these. Seeded from DEFAULT_AI_TRIGGERS; editable per guild.
   aiTriggers: [...DEFAULT_AI_TRIGGERS],
-  // Role IDs allowed to use /tattletale commands. Empty = everyone can use them.
-  // When populated, only members holding one of these roles can use the commands.
+  // Role IDs allowed to use /tattletale commands, IN ADDITION to anyone with
+  // Manage Server (who can always use them). Empty = Manage Server only.
   allowedRoleIds: [],
 };
 

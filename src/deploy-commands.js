@@ -10,9 +10,10 @@ import {
   ChannelType,
 } from 'discord.js';
 
-// No setDefaultMemberPermissions: access is controlled by the in-bot role
-// allowlist (/tattletale allowrole). Empty allowlist = everyone can use the
-// commands; once a role is added, only members with that role can.
+// No setDefaultMemberPermissions so members who hold an allowed role (but not
+// Manage Server) can still see/use the command — access is enforced in code:
+// Manage Server can ALWAYS use it; an empty allowlist means Manage Server only,
+// and any role added to the allowlist may use the commands too (OR logic).
 const command = new SlashCommandBuilder()
   .setName('tattletale')
   .setDescription('Configure the Tattletale moderation bot.')
@@ -123,7 +124,7 @@ const command = new SlashCommandBuilder()
         s.setName('clear').setDescription('Reset the Judge trigger list to the built-in defaults.')))
   .addSubcommand((s) =>
     s.setName('allowrole')
-      .setDescription('Restrict bot commands to a role (empty allowlist = everyone can use them).')
+      .setDescription('Also let a role use the commands (Manage Server can always use them).')
       .addRoleOption((o) =>
         o.setName('role').setDescription('Role allowed to use the bot').setRequired(true)))
   .addSubcommand((s) =>

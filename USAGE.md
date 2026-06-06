@@ -67,9 +67,9 @@ If alerts don't appear, the bot most likely can't see or post in that channel.
 
 ## 4. Commands
 
-All commands are subcommands of `/tattletale`. By default **anyone** can use them;
-add a role allowlist (`/tattletale allowrole`) to restrict access. Responses are
-private (only you see them).
+All commands are subcommands of `/tattletale`. By default only members with
+**Manage Server** can use them; add a role allowlist (`/tattletale allowrole`) to
+let extra roles in too. Responses are private (only you see them).
 
 | Command | What it does |
 |---------|--------------|
@@ -80,8 +80,8 @@ private (only you see them).
 | `/tattletale judge enabled:<true\|false>` | Turn contextual scam/abuse judging on or off (needs an API key on the host). |
 | `/tattletale judgethreshold value:<0–1>` | How sure the Judge must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
 | `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger Judge review. `clear` restores the built-in defaults. |
-| `/tattletale allowrole role:<@role>` | Restrict commands to this role. Empty allowlist = everyone; once a role is added, only members with an allowed role can use the bot. |
-| `/tattletale denyrole role:<@role>` | Remove a role from the allowlist (empty again = everyone). |
+| `/tattletale allowrole role:<@role>` | Let a role use the commands too (Manage Server can always use them). Empty allowlist = Manage Server only. |
+| `/tattletale denyrole role:<@role>` | Remove a role from the allowlist (empty again = Manage Server only). |
 | `/tattletale settings` | Show the current configuration. |
 
 ---
@@ -165,15 +165,15 @@ How it works and what it costs:
 
 ## 6b. Restricting who can use the bot
 
-Access is controlled by a **role allowlist** — no Discord permission needed. By
-default the allowlist is empty, so **anyone** can use `/tattletale`. Add a role
-and only members holding an allowed role can use it:
+Access uses **OR** logic: anyone with **Manage Server** can always use
+`/tattletale`, plus any roles you allow. By default the allowlist is empty, so
+only Manage Server members can use it:
 
 - Allow a role: `/tattletale allowrole role:@Bot Admin`
 - Remove a role: `/tattletale denyrole role:@Bot Admin`
 
-⚠️ Adding the first role restricts access immediately — add a role **you have**
-first, or you'll lock yourself out (only an allowed role can run `denyrole`).
+Manage Server always works regardless of the allowlist, so you can't lock
+yourself out.
 You can also restrict the command in **Server Settings → Integrations →
 TattleTaleBot → Commands**, which is enforced by Discord itself.
 
@@ -200,9 +200,8 @@ TattleTaleBot → Commands**, which is enforced by Discord itself.
   enabled in the Developer Portal (see `README.md`).
 - **`/tattletale` doesn't show up** — An admin needs to run `npm run deploy` once
   to register commands. Global commands can take up to an hour to appear.
-- **"You do not have a role authorized to use this bot"** — A role allowlist is
-  set and you don't have an allowed role. Someone with an allowed role can adjust
-  it via `/tattletale allowrole` / `denyrole`.
+- **"You need the Manage Server permission or an allowed role"** — You have
+  neither. An admin (Manage Server) can `/tattletale allowrole` a role you hold.
 - **A keyword over-matches** — Matching is substring-based and evasion-resistant,
   so short entries can flag bigger words. Use more specific entries.
 

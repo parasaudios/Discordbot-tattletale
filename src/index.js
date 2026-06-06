@@ -315,18 +315,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName !== 'tattletale') return;
 
-  // Access is controlled purely by the role allowlist:
-  //   empty        -> everyone can use the commands
-  //   has role(s)  -> only members holding one of those roles can use them
+  // Access (OR logic): anyone with Manage Server can ALWAYS use the commands.
+  // If a role allowlist is set, members holding one of those roles may use them too.
+  //   empty allowlist -> only Manage Server
+  //   role(s) added   -> Manage Server OR an allowed role
+  const hasManageServer = Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild));
   const allowedRoles = listAllowedRoles(interaction.guild.id);
-  if (allowedRoles.length > 0) {
-    const memberRoleIds = interaction.member?.roles?.cache;
-    const hasRole = memberRoleIds
-      ? allowedRoles.some((id) => memberRoleIds.has(id))
-      : false;
-    if (!hasRole) {
-      return reply(interaction, 'You do not have a role authorized to use this bot.');
-    }
+  const memberRoleIds = interaction.member?.roles?.cache;
+  const hasAllowedRole = allowedRoles.length > 0
+    && Boolean(memberRoleIds && allowedRoles.some((id) => memberRoleIds.has(id)));
+  if (!hasManageServer && !hasAllowedRole) {
+    return reply(interaction, 'You need the **Manage Server** permission or an allowed role to use this bot.');
   }
 
   const guildId = interaction.guild.id;
@@ -479,14 +478,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const role = interaction.options.getRole('role');
         const r = addAllowedRole(guildId, role.id);
         if (!r.ok) return reply(interaction, 'That role is already on the allowlist.');
-        return reply(interaction, `✅ ${role} can now use the bot's commands. **Only members with an allowed role can use it now** — make sure you have one of the allowed roles, or you'll lock yourself out.`);
+        return reply(interaction, `✅ ${role} can now use the bot's commands (in addition to anyone with **Manage Server**).`);
       }
       case 'denyrole': {
         const role = interaction.options.getRole('role');
         const r = removeAllowedRole(guildId, role.id);
         if (!r.ok) return reply(interaction, 'That role is not on the allowlist.');
         const remaining = listAllowedRoles(guildId).length;
-        const tail = remaining === 0 ? ' The allowlist is now empty, so **everyone** can use the bot again.' : '';
+        const tail = remaining === 0 ? ' The allowlist is now empty, so only members with **Manage Server** can use the bot.' : '';
         return reply(interaction, `✅ Removed ${role} from the command allowlist.${tail}`);
       }
       case 'settings': {
@@ -494,8 +493,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const ch = s.alertChannelId ? `<#${s.alertChannelId}>` : '*not set*';
         const tierCh = (id) => (id ? `<#${id}>` : '↳ default');
         const roles = s.allowedRoleIds.length
-          ? s.allowedRoleIds.map((id) => `<@&${id}>`).join(', ')
-          : '*everyone (no role restriction set)*';
+          ? `Manage Server, or ${s.allowedRoleIds.map((id) => `<@&${id}>`).join(', ')}`
+          : '*Manage Server only*';
         const store = storageInfo();
         const persistence = store.dataDirSet
           ? `✅ saving to \`${store.path}\` (ensure a volume is mounted there so it survives redeploys)`

@@ -91,9 +91,10 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 - Toggles: `deletes`, `edits`, `badwords` (each on by default).
 - AI contextual detection (off by default; needs `ANTHROPIC_API_KEY`), with a
   configurable confidence threshold.
-- Command access controlled by a **role allowlist** (no Discord permission
-  required): empty = everyone; once a role is added, only members with an allowed
-  role can use the commands. No `setDefaultMemberPermissions` is set on the command.
+- Command access uses **OR** logic: **Manage Server** can always use the commands;
+  an optional role allowlist lets extra roles in too (empty = Manage Server only).
+  Enforced in code; no `setDefaultMemberPermissions` is set so allowed-role members
+  without Manage Server can still see/use the command.
 
 ### Slash commands (`/tattletale`)
 
@@ -151,8 +152,9 @@ These fixes exist because of real production issues; do not regress them:
     healthcheck HTTP server.
   - Renamed the AI commands to **judge / judgethreshold / judgewords** and
     rebranded all user-facing "AI" wording to "judge/judging".
-  - **Access model:** removed the Manage Server requirement — command access is
-    now purely the role allowlist (empty = everyone; a role added = only that
-    role). No `setDefaultMemberPermissions` on the command.
+  - **Access model:** Manage Server can always use the commands; an optional role
+    allowlist lets extra roles in too (OR logic; empty = Manage Server only). No
+    `setDefaultMemberPermissions` so allowed-role members without Manage Server
+    can still use it.
 - **1.0.0** — Initial bot: delete/edit/bulk-delete logging, flagged-word alerts,
   optional AI detection, role allowlist, per-guild persisted settings.
