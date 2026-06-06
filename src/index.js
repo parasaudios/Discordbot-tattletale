@@ -524,9 +524,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // Keep the process alive on stray errors: discord.js handles its own gateway
-// reconnects, and a single bad event or rejected promise shouldn't crash the bot.
+// reconnects, and a single bad event, rejected promise, or uncaught throw
+// shouldn't crash the whole bot (which the host would report as a failed deploy).
 client.on(Events.Error, (err) => console.error('Client error:', err));
 process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
+process.on('uncaughtException', (err) => console.error('Uncaught exception (kept alive):', err));
 
 // Shut down cleanly when the host stops the container (Railway sends SIGTERM on
 // every redeploy). Without this, Node's default SIGTERM handling exits with code
