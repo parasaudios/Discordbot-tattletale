@@ -75,7 +75,7 @@ These are set on the machine running the bot, **not** in Discord. Copy
 | `CLIENT_ID` | ✅ Yes | Your application (client) ID. Needed to register commands. | Developer Portal → your app → **General Information** → Application ID |
 | `GUILD_ID` | ⬜ Optional | A server ID. If set, slash commands register to that server **instantly** (great for testing). Leave blank to register globally (can take up to ~1 hour to appear). | Right-click your server icon → Copy Server ID (Developer Mode on) |
 | `DATA_DIR` | ⬜ Optional | Folder where `settings.json` is saved. Point it at a mounted volume (e.g. `/data` on Railway) so settings survive redeploys. Defaults to the project root. | You choose |
-| `ANTHROPIC_API_KEY` | ⬜ Optional | Enables AI detection. Without it, the `ai` feature simply stays off. | https://console.anthropic.com |
+| `ANTHROPIC_API_KEY` | ⬜ Optional | Enables AI detection. Without it, the `judge` feature simply stays off. | https://console.anthropic.com |
 
 Example `.env`:
 
@@ -143,13 +143,13 @@ use them (see [Part G](#part-g--restricting-who-can-use-the-bot) to tighten that
 | `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **good word** (safe, notify-only, **no AI**). Optional per-word channel + ping. |
 | `/tattletale goodword remove\|list\|clear` | Remove one / show all / clear all good words. |
 | `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
-| `/tattletale ai enabled:<true\|false>` | Turn AI contextual detection on or off. |
-| `/tattletale aithreshold value:<0–1>` | Set how confident the AI must be before it alerts. |
-| `/tattletale aiwords add phrase:<text>` | Add a scam/harassment phrase that triggers AI review. |
-| `/tattletale aiwords remove phrase:<text>` | Remove a phrase from the AI trigger list. |
-| `/tattletale aiwords edit old:<text> new:<text>` | Replace one AI trigger phrase with another. |
-| `/tattletale aiwords list` | Show all AI trigger phrases. |
-| `/tattletale aiwords clear` | Reset the AI trigger list to the built-in defaults. |
+| `/tattletale judge enabled:<true\|false>` | Turn AI contextual detection on or off. |
+| `/tattletale judgethreshold value:<0–1>` | Set how confident the AI must be before it alerts. |
+| `/tattletale judgewords add phrase:<text>` | Add a scam/harassment phrase that triggers AI review. |
+| `/tattletale judgewords remove phrase:<text>` | Remove a phrase from the AI trigger list. |
+| `/tattletale judgewords edit old:<text> new:<text>` | Replace one AI trigger phrase with another. |
+| `/tattletale judgewords list` | Show all AI trigger phrases. |
+| `/tattletale judgewords clear` | Reset the AI trigger list to the built-in defaults. |
 | `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (on top of Manage Server). |
 | `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
 | `/tattletale settings` | Show the current configuration. |
@@ -209,7 +209,7 @@ There are three lists, each with its own job:
 |------|-----------|--------|-----------|-------------|
 | **🚫 Bad words** | ✅ always | 🔴/🟡 | Words that are bad — the AI then decides *how* bad | `/tattletale badword …` |
 | **✅ Good words** | ❌ never | ✅ green | "Safe" words you just want to be notified about | `/tattletale goodword …` |
-| **🤖 AI words** | (gates AI) | 🟠/🟡 | Signal phrases that let the AI review *other* messages | `/tattletale aiwords …` |
+| **🤖 AI words** | (gates AI) | 🟠/🟡 | Signal phrases that let the AI review *other* messages | `/tattletale judgewords …` |
 
 **Matching** is the same for all three: **evasion-resistant and substring-based**.
 Adding `poop` catches `Poop`, `pooooop`, `po0p`, `p o o p`, `poops`, "i pooped" —
@@ -287,8 +287,8 @@ without a key returns a warning and nothing runs.
 
 **Turn it on / off**
 ```
-/tattletale ai enabled:true
-/tattletale ai enabled:false
+/tattletale judge enabled:true
+/tattletale judge enabled:false
 ```
 
 **What it screens & costs:** the AI only reviews a message when it contains a
@@ -305,11 +305,11 @@ messages are worth an AI intent-check. It ships with a sensible default set and
 is fully editable:
 
 ```
-/tattletale aiwords list                          # see the current phrases
-/tattletale aiwords add phrase:get rich quick      # add a signal
-/tattletale aiwords remove phrase:loser            # drop one
-/tattletale aiwords edit old:kys new:end it        # rename one
-/tattletale aiwords clear                          # restore the built-in defaults
+/tattletale judgewords list                          # see the current phrases
+/tattletale judgewords add phrase:get rich quick      # add a signal
+/tattletale judgewords remove phrase:loser            # drop one
+/tattletale judgewords edit old:kys new:end it        # rename one
+/tattletale judgewords clear                          # restore the built-in defaults
 ```
 
 - Triggers are matched with the same evasion-resistant logic as bad words
@@ -326,7 +326,7 @@ sure it is the message is abusive. The bot only alerts when that score is **at o
 above your threshold**. Think of it as a sensitivity dial.
 
 ```
-/tattletale aithreshold value:0.6
+/tattletale judgethreshold value:0.6
 ```
 
 | Threshold | Effect |
@@ -384,9 +384,9 @@ through the commands above (no manual editing needed).
 | Log deletes (incl. bulk) | **ON** | `/tattletale toggle feature:deletes` |
 | Log edits | **ON** | `/tattletale toggle feature:edits` |
 | Log bad words | **ON** | `/tattletale toggle feature:badwords` |
-| AI detection | **OFF** | `/tattletale ai` |
-| AI confidence threshold | **0.6** | `/tattletale aithreshold` |
-| AI trigger phrases | built-in default set | `/tattletale aiwords add` / `remove` / `edit` / `list` / `clear` |
+| AI detection | **OFF** | `/tattletale judge` |
+| AI confidence threshold | **0.6** | `/tattletale judgethreshold` |
+| AI trigger phrases | built-in default set | `/tattletale judgewords add` / `remove` / `edit` / `list` / `clear` |
 | Command access roles | empty (anyone w/ Manage Server) | `/tattletale allowrole` / `denyrole` |
 
 View the live values any time:
@@ -405,7 +405,7 @@ View the live values any time:
 | **Keyword & AI detection do nothing** | **Message Content Intent** isn't enabled in the Developer Portal (Bot → Privileged Gateway Intents). |
 | **`/tattletale` doesn't show up** | Registration runs automatically on start, but global commands can take ~1 hour to appear; set `GUILD_ID` for instant registration. If still missing, redeploy/restart the bot (or run `npm run deploy`) and check the logs for a registration error. |
 | **"You need the Manage Server permission"** | You're missing Manage Server, or a role allowlist is set and you don't hold an allowed role (`/tattletale allowrole`). |
-| **AI won't enable** | `ANTHROPIC_API_KEY` isn't set on the host. Add it, restart, then `/tattletale ai enabled:true`. |
+| **AI won't enable** | `ANTHROPIC_API_KEY` isn't set on the host. Add it, restart, then `/tattletale judge enabled:true`. |
 | **Settings reset after a redeploy** | Set `DATA_DIR` to a persistent/mounted volume so `settings.json` survives. |
 | **Deleted/edited message shows "Unknown (uncached)"** | The message was posted before the bot started (not in its cache), so Discord can't supply the original author/content. New messages are unaffected. |
 

@@ -76,9 +76,9 @@ permission. Responses are private (only you see them).
 | `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (AI-checked → tiered). `add` takes optional `channel:` + `notify:` (user/role) per word. |
 | `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no AI**). Same optional `channel:` + `notify:`. |
 | `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
-| `/tattletale ai enabled:<true\|false>` | Turn AI contextual scam/abuse detection on or off (needs an API key on the host). |
-| `/tattletale aithreshold value:<0–1>` | How sure the AI must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
-| `/tattletale aiwords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger AI review. `clear` restores the built-in defaults. |
+| `/tattletale judge enabled:<true\|false>` | Turn AI contextual scam/abuse detection on or off (needs an API key on the host). |
+| `/tattletale judgethreshold value:<0–1>` | How sure the AI must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
+| `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger AI review. `clear` restores the built-in defaults. |
 | `/tattletale allowrole role:<@role>` | Allow a role to use the bot's commands (in addition to Manage Server). |
 | `/tattletale denyrole role:<@role>` | Remove a role from the command allowlist. |
 | `/tattletale settings` | Show the current configuration. |
@@ -97,7 +97,7 @@ All done in Discord — no restart needed. Three lists:
   - `/tattletale goodword add word:welcome channel:#welcomes notify:@Greeter`
   - `remove` / `list` / `clear` as well.
 - **🤖 AI words** — signal phrases that let the AI review other messages:
-  `/tattletale aiwords add|remove|edit|list|clear`.
+  `/tattletale judgewords add|remove|edit|list|clear`.
 
 `channel:` and `notify:` (a user **or** role to ping) are optional per word.
 
@@ -136,10 +136,10 @@ layer that judges *intent and context* on messages generally — scams, phishing
 harassment, hate, threats, unwanted sexual content, and spam worded to slip past
 a word list. The two work together.
 
-- Turn on: `/tattletale ai enabled:true`
-- Turn off: `/tattletale ai enabled:false`
-- Tune sensitivity: `/tattletale aithreshold value:0.6`
-- Manage trigger phrases: `/tattletale aiwords list` (and `add`/`remove`/`edit`/`clear`)
+- Turn on: `/tattletale judge enabled:true`
+- Turn off: `/tattletale judge enabled:false`
+- Tune sensitivity: `/tattletale judgethreshold value:0.6`
+- Manage trigger phrases: `/tattletale judgewords list` (and `add`/`remove`/`edit`/`clear`)
 
 How it works and what it costs:
 - It requires an `ANTHROPIC_API_KEY` set on the host (Railway variable). Without
@@ -147,7 +147,7 @@ How it works and what it costs:
 - The AI only reviews a message when it contains a phrase from the **AI trigger
   list** (scam/harassment signals like `free nitro`, `http`, `kill yourself`).
   Everything else is ignored, so API calls stay low. The list has built-in
-  defaults and is editable via `/tattletale aiwords …`; `clear` restores the
+  defaults and is editable via `/tattletale judgewords …`; `clear` restores the
   defaults rather than emptying it. Identical messages are cached, and it uses a
   small, cheap model (Claude Haiku) with prompt caching — pennies on most servers.
 - A trigger only *starts* a review; the AI still judges intent, so an innocent
@@ -156,7 +156,7 @@ How it works and what it costs:
   60%), an alert with the category and a short reason is posted to your mod
   channel. It never deletes or punishes — same notify-only behavior as the rest
   of the bot.
-- **Confidence threshold** (`/tattletale aithreshold value:0–1`): for each
+- **Confidence threshold** (`/tattletale judgethreshold value:0–1`): for each
   screened message the AI returns how sure it is (0–1) that the message is
   abusive. Only messages scoring at or above your threshold trigger an alert.
   Lower it (e.g. `0.4`) to catch more borderline cases at the cost of more false

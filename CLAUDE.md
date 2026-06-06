@@ -97,7 +97,7 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 ### Slash commands (`/tattletale`)
 
 `setchannel [tier]`, `badword add|remove|list|clear`, `goodword add|remove|list|clear`,
-`aiwords add|remove|edit|list|clear`, `toggle`, `ai`, `aithreshold`,
+`judgewords add|remove|edit|list|clear`, `toggle`, `judge`, `judgethreshold`,
 `allowrole`, `denyrole`, `settings`. `add` for good/bad words takes optional
 `channel:` and `notify:` (mentionable). Re-register only when the command
 *structure* changes (adding words at runtime does not).

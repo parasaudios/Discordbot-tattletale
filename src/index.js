@@ -338,8 +338,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const sub = interaction.options.getSubcommand();
 
   try {
-    // --- AI trigger list management: /tattletale aiwords <add|remove|edit|list|clear> ---
-    if (group === 'aiwords') {
+    // --- AI trigger list management: /tattletale judgewords <add|remove|edit|list|clear> ---
+    if (group === 'judgewords') {
       switch (sub) {
         case 'add': {
           const r = addAiTrigger(guildId, interaction.options.getString('phrase'));
@@ -365,7 +365,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
         case 'list': {
           const triggers = listAiTriggers(guildId);
-          if (!triggers.length) return reply(interaction, 'No AI trigger phrases set. Restore the defaults with `/tattletale aiwords clear`.');
+          if (!triggers.length) return reply(interaction, 'No AI trigger phrases set. Restore the defaults with `/tattletale judgewords clear`.');
           const body = `**AI trigger phrases (${triggers.length}):**\n${triggers.map((t) => `\`${t}\``).join(', ')}`;
           return reply(interaction, truncate(body, 1900));
         }
@@ -374,7 +374,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return reply(interaction, `✅ Reset the AI trigger list to the built-in defaults (${count} phrase(s)).`);
         }
         default:
-          return reply(interaction, 'Unknown aiwords subcommand.');
+          return reply(interaction, 'Unknown judgewords subcommand.');
       }
     }
 
@@ -464,7 +464,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         setToggle(guildId, map[feature], enabled);
         return reply(interaction, `✅ Logging for **${feature}** is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
-      case 'ai': {
+      case 'judge': {
         const enabled = interaction.options.getBoolean('enabled');
         if (enabled && !process.env.ANTHROPIC_API_KEY) {
           return reply(interaction, '⚠️ AI detection needs an `ANTHROPIC_API_KEY` set on the host. Add it, then enable.');
@@ -472,7 +472,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         setAiEnabled(guildId, enabled);
         return reply(interaction, `✅ AI contextual detection is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
-      case 'aithreshold': {
+      case 'judgethreshold': {
         const value = setAiThreshold(guildId, interaction.options.getNumber('value'));
         return reply(
           interaction,

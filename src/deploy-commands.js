@@ -83,12 +83,12 @@ const command = new SlashCommandBuilder()
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
   .addSubcommand((s) =>
-    s.setName('ai')
+    s.setName('judge')
       .setDescription('Turn AI contextual scam/abuse detection on or off.')
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))
   .addSubcommand((s) =>
-    s.setName('aithreshold')
+    s.setName('judgethreshold')
       .setDescription('Set how confident the AI must be to flag a message (0–1).')
       .addNumberOption((o) =>
         o.setName('value')
@@ -97,7 +97,7 @@ const command = new SlashCommandBuilder()
           .setMinValue(0)
           .setMaxValue(1)))
   .addSubcommandGroup((g) =>
-    g.setName('aiwords')
+    g.setName('judgewords')
       .setDescription('Manage the scam/harassment phrases that trigger AI review.')
       .addSubcommand((s) =>
         s.setName('add')
