@@ -33,6 +33,7 @@ const command = new SlashCommandBuilder()
           .setDescription('Which alerts go here (omit = default/fallback for all tiers)')
           .addChoices(
             { name: 'Default — all alerts / fallback', value: 'default' },
+            { name: 'Good — safe good-word notices', value: 'good' },
             { name: 'High — bad word + Judge confirms harmful', value: 'high' },
             { name: 'Medium — Judge-only harmful', value: 'medium' },
             { name: 'Low — flagged but harmless', value: 'low' },

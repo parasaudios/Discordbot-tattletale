@@ -58,6 +58,7 @@ const DEFAULTS = {
   //   high   = a flagged word AND the AI both judge it harmful
   //   medium = the AI alone judges it harmful
   //   low    = flagged/triggered but judged harmless (still worth a heads-up)
+  alertChannelGood: null,
   alertChannelHigh: null,
   alertChannelMedium: null,
   alertChannelLow: null,
@@ -157,6 +158,7 @@ export function getServer(serverId) {
 // Maps a tier name to the settings key that stores its channel.
 const TIER_CHANNEL_KEYS = {
   default: 'alertChannelId',
+  good: 'alertChannelGood',
   high: 'alertChannelHigh',
   medium: 'alertChannelMedium',
   low: 'alertChannelLow',

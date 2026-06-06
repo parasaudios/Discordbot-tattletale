@@ -78,7 +78,7 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 
 ### Channel routing (per alert)
 
-- Good word → its own `channel` → default alert channel.
+- Good word → its own `channel` → its `good` tier channel → default alert channel.
 - Bad word → its own `channel` → its tier channel (high/low) → default.
 - AI-word catch → its tier channel (medium/low) → default.
 - Each good/bad word may also `notify` a **user or role** (a Discord *mentionable*),

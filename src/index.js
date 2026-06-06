@@ -168,7 +168,7 @@ async function screenMessage(message, origin = 'posted') {
         { name: 'Jump', value: `[Go to message](${message.url})` },
       )
       .setTimestamp(message.createdAt);
-    await sendAlert(message.guild, embed, goodHit.channelId ?? settings.alertChannelId, goodHit.notify);
+    await sendAlert(message.guild, embed, goodHit.channelId ?? channelForTier(message.guild.id, 'good'), goodHit.notify);
   }
 
   // --- Bad words: ALWAYS AI-checked so a severity tier can be determined. ---
@@ -485,6 +485,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         const tierLabel = {
           default: 'all alerts (default)',
+          good: '✅ good-word notices',
           high: '🔴 high-severity alerts',
           medium: '🟠 medium (Judge-only) alerts',
           low: '🟡 low / harmless alerts',
@@ -533,6 +534,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           [
             '**Tattletale settings**',
             `Alert channel (default): ${ch}`,
+            `• ✅ Good-word notices: ${tierCh(s.alertChannelGood)}`,
             `• 🔴 High alerts: ${tierCh(s.alertChannelHigh)}`,
             `• 🟠 Medium alerts: ${tierCh(s.alertChannelMedium)}`,
             `• 🟡 Low/harmless alerts: ${tierCh(s.alertChannelLow)}`,

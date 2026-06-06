@@ -138,7 +138,7 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 
 | Command | What it does |
 |---------|--------------|
-| `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that severity there. |
+| `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that category there. |
 | `/tattletale badword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **bad word** (Judge-checked → tiered). Optional per-word channel + ping. |
 | `/tattletale badword remove\|list\|clear` | Remove one / show all / clear all bad words. |
 | `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **good word** (safe, notify-only, **no Judge**). Optional per-word channel + ping. |
@@ -375,7 +375,7 @@ through the commands above (no manual editing needed).
 | Setting | Default | Set with |
 |---------|---------|----------|
 | Alert channel (default/fallback) | *none* (must be set) | `/tattletale setchannel` |
-| Per-tier channels (high/medium/low) | fall back to default | `/tattletale setchannel … tier:high\|medium\|low` |
+| Per-tier channels (good/high/medium/low) | fall back to default | `/tattletale setchannel … tier:good\|high\|medium\|low` |
 | Bad words (Judge-checked) | empty list | `/tattletale badword add` / `remove` / `list` / `clear` |
 | Good words (no Judge, safe) | empty list | `/tattletale goodword add` / `remove` / `list` / `clear` |
 | Log deletes (incl. bulk) | **ON** | `/tattletale toggle feature:deletes` |

@@ -73,7 +73,7 @@ Settings → Integrations**. Responses are private (only you see them).
 
 | Command | What it does |
 |---------|--------------|
-| `/tattletale setchannel channel:<#channel> [tier:default\|high\|medium\|low]` | Set the alert channel. No `tier` = default for all; a `tier` routes that severity to its own channel. |
+| `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low]` | Set the alert channel. No `tier` = default for all; a `tier` routes that category to its own channel. |
 | `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (Judge-checked → tiered). `add` takes optional `channel:` + `notify:` (user/role) per word. |
 | `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no Judge**). Same optional `channel:` + `notify:`. |
 | `/tattletale toggle feature:<deletes\|edits\|badwords> enabled:<true\|false>` | Turn a logging feature on or off. |
