@@ -89,6 +89,7 @@ const command = new SlashCommandBuilder()
             { name: 'Bad words', value: 'badwords' },
             { name: 'Debug logging', value: 'debug' },
             { name: 'Only log flagged deletes/edits', value: 'onlyflagged' },
+            { name: 'Anti-evasion (split messages)', value: 'split' },
           ))
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))

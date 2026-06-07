@@ -334,7 +334,56 @@ async function screenMessage(message, origin = 'posted') {
 }
 
 // --- Flagged-word scanning + AI contextual detection ---
-client.on(Events.MessageCreate, (message) => screenMessage(message, 'posted'));
+client.on(Events.MessageCreate, (message) => {
+  screenMessage(message, 'posted');
+  screenSplitEvasion(message);
+});
+
+// Anti-evasion: catch a bad word split across several messages ("c","u","n","t"
+// or "kill" / "yourself"). Keeps a short rolling window of each user's recent
+// messages per channel; if the COMBINED text matches a bad word but no single
+// message in the window does, it's flagged as evasion. Opt-in (antiSplit toggle).
+const SPLIT_WINDOW_MS = 30_000; // how far back to combine
+const SPLIT_MAX_ITEMS = 8;      // cap messages combined per user/channel
+const recentByUser = new Map(); // key: guild:channel:user -> [{content, url, ts}]
+
+async function screenSplitEvasion(message) {
+  if (message.author?.bot || !message.guild || !message.content) return;
+  const s = getServer(message.guild.id);
+  if (!s.antiSplit || !s.badWords.length) return;
+  if (!watched(message.guild.id, message.channel)) return;
+
+  const key = `${message.guild.id}:${message.channel.id}:${message.author.id}`;
+  const now = Date.now();
+  let buf = (recentByUser.get(key) || []).filter((i) => now - i.ts <= SPLIT_WINDOW_MS);
+  buf.push({ content: message.content, url: message.url, ts: now });
+  if (buf.length > SPLIT_MAX_ITEMS) buf = buf.slice(-SPLIT_MAX_ITEMS);
+  recentByUser.set(key, buf);
+  if (buf.length < 2) return; // need at least two messages to be a "split"
+
+  const combined = buf.map((i) => i.content).join(' ');
+  const comboHit = findMatch(combined, s.badWords);
+  if (!comboHit) return;
+  // If any single message already matches on its own, it was alerted normally —
+  // not evasion. Only alert when the match only appears once combined.
+  if (buf.some((i) => findMatch(i.content, s.badWords))) return;
+
+  recentByUser.delete(key); // reset so we don't re-alert on every later message
+
+  const embed = new EmbedBuilder()
+    .setTitle('⚠️ Possible filter evasion — split messages')
+    .setColor(0xE67E22)
+    .addFields(
+      { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
+      { name: 'Channel', value: `${message.channel}`, inline: true },
+      { name: 'Bad word (combined)', value: `\`${comboHit.word}\``, inline: true },
+      { name: 'Messages', value: truncate(buf.map((i) => i.content).join('  ⏐  ')) },
+      { name: 'Jump', value: `[Latest message](${message.url})` },
+    )
+    .setTimestamp(new Date());
+  const channelId = comboHit.channelId ?? channelForTier(message.guild.id, 'high');
+  await sendAlert(message.guild, embed, channelId, comboHit.notify);
+}
 
 // --- Deleted messages ---
 client.on(Events.MessageDelete, async (message) => {
@@ -679,10 +728,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case 'toggle': {
         const feature = interaction.options.getString('feature');
         const enabled = interaction.options.getBoolean('enabled');
-        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords', debug: 'debugLogging', onlyflagged: 'logFlaggedOnly' };
+        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords', debug: 'debugLogging', onlyflagged: 'logFlaggedOnly', split: 'antiSplit' };
         setToggle(serverId, map[feature], enabled);
         if (feature === 'debug') {
           return reply(interaction, `✅ Debug logging is now **${enabled ? 'ON' : 'OFF'}** (gateway firehose + per-command access diagnostic).`);
+        }
+        if (feature === 'split') {
+          return reply(interaction, enabled
+            ? '✅ **Anti-evasion** ON — the bot now also checks a user\'s recent messages combined, to catch a bad word split across several messages.'
+            : '✅ **Anti-evasion** OFF — messages are only checked individually.');
         }
         if (feature === 'onlyflagged') {
           return reply(interaction, enabled
@@ -729,6 +783,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
             `Only log flagged deletes/edits: ${s.logFlaggedOnly ? 'ON' : 'OFF'}`,
+            `Anti-evasion (split messages): ${s.antiSplit ? 'ON' : 'OFF'}`,
             `Log bad words: ${s.logBadWords ? 'ON' : 'OFF'}`,
             `Judging: ${s.aiEnabled ? 'ON' : 'OFF'}`,
             `Judge threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,
@@ -797,7 +852,7 @@ process.on('exit', (code) => console.log(`Process exiting with code ${code}.`));
 // Only connect to Discord when run directly (npm start) — importing this module
 // for tests/tooling should not attempt a login. screenMessage/findMatch/decideTier
 // are exported so the screening logic can be unit-tested in isolation.
-export { screenMessage, findMatch, decideTier };
+export { screenMessage, findMatch, decideTier, screenSplitEvasion };
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {

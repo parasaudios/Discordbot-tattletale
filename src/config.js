@@ -80,6 +80,9 @@ const DEFAULTS = {
   // When true, delete/edit logs ONLY fire for messages that matched a good/bad
   // word (i.e. trigger-related); benign deletes/edits are not logged.
   logFlaggedOnly: false,
+  // When true, detect filter evasion by screening a user's recent messages
+  // combined together (catches a bad word split across several messages).
+  antiSplit: false,
   // Verbose debug logging (gateway firehose + per-command access diagnostic).
   debugLogging: false,
   // AI contextual scam/abuse detection (off by default; costs API usage).

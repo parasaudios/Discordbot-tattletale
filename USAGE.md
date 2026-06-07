@@ -76,7 +76,7 @@ Settings → Integrations**. Responses are private (only you see them).
 | `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low\|deletes\|edits]` | Set the alert channel. No `tier` = default for all; a `tier` routes that category to its own channel. |
 | `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (Judge-checked → tiered). `add` takes optional `channel:` + `notify:` (one or more users/roles) per word. |
 | `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no Judge**). Same optional `channel:` + `notify:`. |
-| `/tattletale toggle feature:<deletes\|edits\|badwords\|debug\|onlyflagged> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
+| `/tattletale toggle feature:<deletes\|edits\|badwords\|debug\|onlyflagged\|split> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
 | `/tattletale judge enabled:<true\|false>` | Turn contextual scam/abuse judging on or off (needs an API key on the host). |
 | `/tattletale judgethreshold value:<0–1>` | How sure the Judge must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
 | `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger Judge review. `clear` restores the built-in defaults. |
