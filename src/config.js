@@ -235,12 +235,21 @@ export function clearWatchChannels(serverId) {
 // Each entry: { word, channelId, notify }. channelId/notify are optional
 // per-word overrides (alert channel + a user/role mention to ping).
 
+// Add a word, or UPDATE it if it already exists (upsert). Only the fields you
+// pass are changed — re-adding with a new `notify` keeps the existing `channel`,
+// and vice versa. (To clear a field, remove the word and add it fresh.)
 function addWordTo(list, word, channelId, notify) {
   const w = word.trim().toLowerCase();
   if (!w) return { ok: false, reason: 'empty' };
-  if (list.some((e) => e.word === w)) return { ok: false, reason: 'exists' };
-  list.push({ word: w, channelId: channelId || null, notify: notify || null });
-  return { ok: true, word: w };
+  let entry = list.find((e) => e.word === w);
+  const updated = Boolean(entry);
+  if (!entry) {
+    entry = { word: w, channelId: null, notify: null };
+    list.push(entry);
+  }
+  if (channelId !== null && channelId !== undefined) entry.channelId = channelId;
+  if (notify !== null && notify !== undefined) entry.notify = notify;
+  return { ok: true, word: w, updated, entry: { ...entry } };
 }
 
 function removeWordFrom(list, word) {

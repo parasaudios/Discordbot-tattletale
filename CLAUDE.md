@@ -63,7 +63,8 @@ v14** (Node ≥18, ESM). Source lives in `src/`:
 ### Word lists (three, independent)
 
 Each good/bad word is stored as `{ word, channelId, notify }` — both overrides
-optional. Matching is case-insensitive, substring-based, and evasion-resistant
+optional. Adding an existing word **updates** it (upsert), changing only
+the fields you pass; remove + re-add to clear a field. Matching is case-insensitive, substring-based, and evasion-resistant
 (handles leetspeak, stretched letters, inserted separators).
 
 - **Good words** — safe heads-up words. **No AI check.** Green ✅ notice.

@@ -576,13 +576,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
           if (channel && !channel.isTextBased()) return reply(interaction, 'Please choose a text channel.');
           const notify = parseMentions(interaction.options.getString('notify'));
           const r = fns.add(serverId, word, channel?.id ?? null, notify);
-          if (!r.ok && r.reason === 'exists') return reply(interaction, `That word is already on the ${label}-word list.`);
           if (!r.ok) return reply(interaction, 'That word is empty or invalid.');
-          let m = `✅ Added \`${r.word}\` to the **${label}-word** list.`;
-          if (channel) m += ` Alerts → ${channel}.`;
-          if (notify) m += ` Pings ${notify}.`;
-          if (isBad && notify) m += '';
-          return reply(interaction, m);
+          const e = r.entry;
+          const bits = [];
+          if (e.channelId) bits.push(`alerts → <#${e.channelId}>`);
+          if (e.notify) bits.push(`pings ${e.notify}`);
+          const detail = bits.length ? ` — ${bits.join(', ')}` : '';
+          const verb = r.updated ? 'Updated' : 'Added';
+          return reply(interaction, `✅ ${verb} \`${r.word}\` in the **${label}-word** list${detail}.`);
         }
         case 'remove': {
           const r = fns.remove(serverId, interaction.options.getString('word'));

@@ -243,6 +243,10 @@ keyword without treating it as an offense.
 > `badword add` / `goodword add`. `notify:` accepts **one or more users/roles** —
 > just @mention several in the field — and pings them all when that word fires.
 > Leave them off to use the default channel.
+>
+> **Re-adding a word updates it** — e.g. `goodword add` the same word with a new
+> `notify:` changes the ping but keeps its `channel:` (and vice versa). Only the
+> fields you pass change; to clear a field, remove the word and add it fresh.
 
 > **What an alert looks like:** the mod channel gets a colour-coded embed with the
 > user, channel, the matched word, the Verdict (for bad words), the message,
