@@ -38,6 +38,9 @@ import {
   clearWatchChannels,
 } from './config.js';
 import { classifyMessage } from './ai.js';
+import { command } from './deploy-commands.js';
+
+const commandJSON = command.toJSON();
 
 // Timestamp every log line so output can be correlated to the exact moment the
 // host reports a crash/restart. Installed before anything else logs.
@@ -150,8 +153,34 @@ const TIERS = {
   good: { color: 0x57F287, label: '✅ Good word used (safe)' },
 };
 
+// Register the /tattletale command in every server the bot is currently in, and
+// clear any leftover global copies. Called on startup; guildCreate handles servers
+// joined later. Per-server (guild) commands appear instantly and keep the
+// permission lock — no global ~1h wait and no SERVER_ID juggling needed.
+async function registerCommandsEverywhere(c) {
+  try {
+    await c.application.commands.set([]); // clear stale GLOBAL commands (we use per-server)
+  } catch (err) {
+    console.error('Could not clear global commands:', err?.message || err);
+  }
+  for (const server of c.guilds.cache.values()) {
+    try {
+      await server.commands.set([commandJSON]);
+      console.log(`Registered /tattletale in "${server.name}" (${server.id}).`);
+    } catch (err) {
+      console.error(`Could not register commands in ${server.id}:`, err?.message || err);
+    }
+  }
+}
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`Tattletale online as ${c.user.tag}`);
+
+  // Register slash commands in every server the bot is in, right now. Guild
+  // commands appear instantly (no ~1h global wait) and carry the Manage Server
+  // permission lock. We also clear any stale GLOBAL commands so there's no
+  // unrestricted duplicate. New servers are handled by the guildCreate listener.
+  await registerCommandsEverywhere(c);
 
   // Auto-set the bot's username. Discord limits username changes to ~2/hour, so
   // only rename when it's actually wrong (skips on every normal restart). Set
@@ -180,6 +209,22 @@ client.once(Events.ClientReady, async (c) => {
       }
     } catch { /* missing Change Nickname permission — non-fatal */ }
   }
+});
+
+// Register the command (and set the nickname) the instant the bot is added to a
+// new server — so commands show up within seconds, no SERVER_ID or 1h global wait.
+client.on(Events.GuildCreate, async (server) => {
+  try {
+    await server.commands.set([commandJSON]);
+    console.log(`Joined "${server.name}" (${server.id}) — registered /tattletale.`);
+  } catch (err) {
+    console.error(`Could not register commands in new server ${server.id}:`, err?.message || err);
+  }
+  try {
+    const desiredName = process.env.BOT_NAME || 'TattleTale';
+    const me = server.members.me ?? (await server.members.fetchMe().catch(() => null));
+    if (me && me.nickname !== desiredName && me.user.username !== desiredName) await me.setNickname(desiredName);
+  } catch { /* non-fatal */ }
 });
 
 // Screen a message's content for flagged words and (optionally) AI-detected

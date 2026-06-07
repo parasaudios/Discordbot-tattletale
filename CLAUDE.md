@@ -54,7 +54,10 @@ v14** (Node ≥18, ESM). Source lives in `src/`:
 - `src/index.js` — gateway client, event handlers, message screening, slash-command
   handling, startup/health/diagnostics.
 - `src/config.js` — per-server settings, persisted to `settings.json` (see `DATA_DIR`).
-- `src/deploy-commands.js` — builds & registers the `/tattletale` slash command.
+- `src/deploy-commands.js` — builds the `/tattletale` slash command (exports
+  `command`); also a manual `npm run deploy` registrar. Runtime registration is
+  done by `index.js`, which registers per-server on ready and on `guildCreate`
+  (instant, no SERVER_ID/global wait) and clears stale global commands.
 - `src/ai.js` — Anthropic (Claude) contextual classification.
 
 ### Word lists (three, independent)
@@ -100,10 +103,11 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 ### Slash commands (`/tattletale`)
 
 `setchannel [tier]`, `badword add|remove|list|clear`, `goodword add|remove|list|clear`,
-`judgewords add|remove|edit|list|clear`, `toggle`, `judge`, `judgethreshold`,
-`settings`. `add` for good/bad words takes optional
-`channel:` and `notify:` (mentionable). Re-register only when the command
-*structure* changes (adding words at runtime does not).
+`judgewords add|remove|edit|list|clear`, `watch add|remove|list|clear`, `toggle`
+(deletes/edits/badwords/debug), `judge`, `judgethreshold`, `settings`. `add` for
+good/bad words takes optional `channel:` and `notify:` (mentionable). Commands are
+re-registered automatically at runtime (per server on ready + on guildCreate), so
+a structure change just needs a restart/redeploy.
 
 ### Environment variables
 
@@ -121,8 +125,9 @@ These fixes exist because of real production issues; do not regress them:
 - **Run `node` directly, not `npm start`.** `npm` does **not** forward `SIGTERM`
   to the node child, so on every redeploy the old container was force-killed
   (non-zero exit) and Railway emailed "Deployment crashed". `railway.json` sets
-  `startCommand` to `node src/deploy-commands.js || true; exec node src/index.js`
-  so node becomes the signalled process (PID 1) and our graceful shutdown runs.
+  `startCommand` to `exec node src/index.js` so node becomes the signalled process
+  (PID 1) and our graceful shutdown runs. (Command registration is done at runtime
+  by index.js, so no separate deploy-commands step is needed at startup.)
 - **Graceful shutdown** on SIGTERM/SIGINT/SIGHUP/SIGQUIT → `client.destroy()` →
   `process.exit(0)` (clean teardown, no false crash email).
 - **Stay alive on stray errors:** `uncaughtException` and `unhandledRejection`

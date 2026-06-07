@@ -92,24 +92,21 @@ ANTHROPIC_API_KEY=             # blank = judging disabled
 
 ### Registering the slash command
 
-The `/tattletale` command must be registered with Discord whenever its structure
-changes (adding words/toggles at runtime does **not** count). This is wired to
-happen **automatically**: `npm start` runs a `prestart` hook that registers the
-command first, so every launch/redeploy picks up the latest definition.
+This is **fully automatic** — you don't need to run anything. On startup the bot
+registers `/tattletale` in **every server it's in** (instant, server-scoped
+commands), and it registers in **any new server the moment it's added** (via the
+`guildCreate` event). It also clears any stale global copies. So:
 
-```bash
-npm install          # first time only
-npm start            # auto-registers the command, then starts the bot
-```
+- **Invite the bot → commands appear within seconds.** No `SERVER_ID` needed, no
+  ~1-hour global wait.
+- A redeploy re-registers automatically and picks up any structure changes.
 
-You can also register manually without starting the bot:
+> **Invite scope matters:** the invite URL **must** include both `bot` **and**
+> `applications.commands` scopes, or the slash commands won't appear no matter what.
 
-```bash
-npm run deploy       # registers the /tattletale command only
-```
-
-- With `SERVER_ID` set → the command appears in that server immediately.
-- With `SERVER_ID` blank → it registers globally and may take up to ~1 hour.
+`SERVER_ID` is now optional and only affects the manual `npm run deploy` path
+(which still exists for one-off registration/clearing). `BOT_NAME` (optional)
+sets the auto-applied bot name; defaults to `TattleTale`.
 
 ### Required Discord permissions & intents
 
