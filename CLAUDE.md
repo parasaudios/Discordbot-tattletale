@@ -84,8 +84,9 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 - Good word → its own `channel` → its `good` tier channel → default alert channel.
 - Bad word → its own `channel` → its tier channel (high/low) → default.
 - AI-word catch → its tier channel (medium/low) → default.
-- Each good/bad word may also `notify` a **user or role** (a Discord *mentionable*),
-  which is pinged in the alert via message content + `allowedMentions`.
+- Each good/bad word may also `notify` **one or more users/roles** (a free-text
+  field of @mentions, parsed to a mention string), pinged via message content +
+  `allowedMentions`.
 
 ### Other features
 
@@ -105,7 +106,7 @@ optional. Matching is case-insensitive, substring-based, and evasion-resistant
 `setchannel [tier]`, `badword add|remove|list|clear`, `goodword add|remove|list|clear`,
 `judgewords add|remove|edit|list|clear`, `watch add|remove|list|clear`, `toggle`
 (deletes/edits/badwords/debug), `judge`, `judgethreshold`, `settings`. `add` for
-good/bad words takes optional `channel:` and `notify:` (mentionable). Commands are
+good/bad words takes optional `channel:` and `notify:` (one or more @mentions). Commands are
 re-registered automatically at runtime (per server on ready + on guildCreate), so
 a structure change just needs a restart/redeploy.
 

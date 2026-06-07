@@ -107,6 +107,21 @@ function truncate(text, max = 1024) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+// Parse one or more user/role mentions from a free-text `notify:` option into a
+// normalized, de-duped mention string (e.g. "<@1> <@&2>"). Non-mention text is
+// ignored. Returns null if no valid mentions are found.
+function parseMentions(input) {
+  if (!input) return null;
+  const out = [];
+  const re = /<@!?(\d+)>|<@&(\d+)>/g;
+  let m;
+  while ((m = re.exec(input)) !== null) {
+    out.push(m[1] ? `<@${m[1]}>` : `<@&${m[2]}>`);
+  }
+  const unique = [...new Set(out)];
+  return unique.length ? unique.join(' ') : null;
+}
+
 // Whether the bot should monitor a given channel. Empty watch list = watch every
 // channel; otherwise only listed channels (and threads whose parent is listed).
 function watched(serverId, channel) {
@@ -559,8 +574,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const word = interaction.options.getString('word');
           const channel = interaction.options.getChannel('channel');
           if (channel && !channel.isTextBased()) return reply(interaction, 'Please choose a text channel.');
-          const mentionable = interaction.options.getMentionable('notify');
-          const notify = mentionable ? mentionable.toString() : null;
+          const notify = parseMentions(interaction.options.getString('notify'));
           const r = fns.add(serverId, word, channel?.id ?? null, notify);
           if (!r.ok && r.reason === 'exists') return reply(interaction, `That word is already on the ${label}-word list.`);
           if (!r.ok) return reply(interaction, 'That word is empty or invalid.');

@@ -48,8 +48,8 @@ const command = new SlashCommandBuilder()
             o.setName('word').setDescription('The word or phrase to flag as bad').setRequired(true))
           .addChannelOption((o) =>
             o.setName('channel').setDescription('Channel for this word\'s alerts (else default)').addChannelTypes(ChannelType.GuildText))
-          .addMentionableOption((o) =>
-            o.setName('notify').setDescription('User or role to ping on this word\'s alerts')))
+          .addStringOption((o) =>
+            o.setName('notify').setDescription('User(s)/role(s) to ping — @mention one or more')))
       .addSubcommand((s) =>
         s.setName('remove')
           .setDescription('Remove a bad word.')
@@ -66,8 +66,8 @@ const command = new SlashCommandBuilder()
             o.setName('word').setDescription('The word or phrase to watch for').setRequired(true))
           .addChannelOption((o) =>
             o.setName('channel').setDescription('Channel for this word\'s alerts (else default)').addChannelTypes(ChannelType.GuildText))
-          .addMentionableOption((o) =>
-            o.setName('notify').setDescription('User or role to ping on this word\'s alerts')))
+          .addStringOption((o) =>
+            o.setName('notify').setDescription('User(s)/role(s) to ping — @mention one or more')))
       .addSubcommand((s) =>
         s.setName('remove')
           .setDescription('Remove a good word.')

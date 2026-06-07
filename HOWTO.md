@@ -136,9 +136,9 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 | Command | What it does |
 |---------|--------------|
 | `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that category there. |
-| `/tattletale badword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **bad word** (Judge-checked → tiered). Optional per-word channel + ping. |
+| `/tattletale badword add word:<text> [channel:<#ch>] [notify:<@user/role…>]` | Add a **bad word** (Judge-checked → tiered). Optional per-word channel + ping (one or more users/roles). |
 | `/tattletale badword remove\|list\|clear` | Remove one / show all / clear all bad words. |
-| `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role>]` | Add a **good word** (safe, notify-only, **no Judge**). Optional per-word channel + ping. |
+| `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role…>]` | Add a **good word** (safe, notify-only, **no Judge**). Optional per-word channel + ping (one or more users/roles). |
 | `/tattletale goodword remove\|list\|clear` | Remove one / show all / clear all good words. |
 | `/tattletale toggle feature:<deletes\|edits\|badwords\|debug> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
 | `/tattletale judge enabled:<true\|false>` | Turn contextual judging on or off. |
@@ -226,7 +226,7 @@ but not unrelated words like `popular`. Phrases work; entries are stored lowerca
 ```
 When a bad word is used, the Judge weighs intent → 🔴 **High** if it confirms harm,
 🟡 **Low** if it looks harmless. Alerts go to that word's `channel` (if set),
-otherwise the tier/default channel, and ping its `notify` user/role if set.
+otherwise the tier/default channel, and ping its `notify` user(s)/role(s) if set.
 
 ### Good words (safe, no Judge)
 ```
@@ -240,8 +240,9 @@ notice (optionally in its own channel / pinging someone). Handy for tracking a
 keyword without treating it as an offense.
 
 > **Per-word channel & ping:** both `channel:` and `notify:` are optional on
-> `badword add` / `goodword add`. `notify:` accepts a **user or a role** and
-> pings them when that word fires. Leave them off to use the default channel.
+> `badword add` / `goodword add`. `notify:` accepts **one or more users/roles** —
+> just @mention several in the field — and pings them all when that word fires.
+> Leave them off to use the default channel.
 
 > **What an alert looks like:** the mod channel gets a colour-coded embed with the
 > user, channel, the matched word, the Verdict (for bad words), the message,

@@ -74,7 +74,7 @@ Settings → Integrations**. Responses are private (only you see them).
 | Command | What it does |
 |---------|--------------|
 | `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low]` | Set the alert channel. No `tier` = default for all; a `tier` routes that category to its own channel. |
-| `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (Judge-checked → tiered). `add` takes optional `channel:` + `notify:` (user/role) per word. |
+| `/tattletale badword add\|remove\|list\|clear` | Manage **bad words** (Judge-checked → tiered). `add` takes optional `channel:` + `notify:` (one or more users/roles) per word. |
 | `/tattletale goodword add\|remove\|list\|clear` | Manage **good words** (safe, notify-only, **no Judge**). Same optional `channel:` + `notify:`. |
 | `/tattletale toggle feature:<deletes\|edits\|badwords\|debug> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
 | `/tattletale judge enabled:<true\|false>` | Turn contextual scam/abuse judging on or off (needs an API key on the host). |
@@ -99,7 +99,7 @@ All done in Discord — no restart needed. Three lists:
 - **🤖 Judge words** — signal phrases that let the Judge review other messages:
   `/tattletale judgewords add|remove|edit|list|clear`.
 
-`channel:` and `notify:` (a user **or** role to ping) are optional per word.
+`channel:` and `notify:` (one or more users/roles to ping — @mention several) are optional per word.
 
 How matching works (evasion-resistant, all lists):
 
