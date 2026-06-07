@@ -77,6 +77,9 @@ const DEFAULTS = {
   logDeletes: true,
   logEdits: true,
   logBadWords: true,
+  // When true, delete/edit logs ONLY fire for messages that matched a good/bad
+  // word (i.e. trigger-related); benign deletes/edits are not logged.
+  logFlaggedOnly: false,
   // Verbose debug logging (gateway firehose + per-command access diagnostic).
   debugLogging: false,
   // AI contextual scam/abuse detection (off by default; costs API usage).

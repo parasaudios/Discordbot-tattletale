@@ -88,6 +88,7 @@ const command = new SlashCommandBuilder()
             { name: 'Edited messages', value: 'edits' },
             { name: 'Bad words', value: 'badwords' },
             { name: 'Debug logging', value: 'debug' },
+            { name: 'Only log flagged deletes/edits', value: 'onlyflagged' },
           ))
       .addBooleanOption((o) =>
         o.setName('enabled').setDescription('On (true) or off (false)').setRequired(true)))

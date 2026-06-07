@@ -93,7 +93,9 @@ the fields you pass; remove + re-add to clear a field. Matching is case-insensit
 
 - Logs **deleted**, **bulk-deleted**, and **edited** messages. Edited content is
   re-screened so a banned word added after posting is still caught.
-- Toggles: `deletes`, `edits`, `badwords` (each on by default).
+- Toggles: `deletes`, `edits`, `badwords` (each on by default), plus
+  `onlyflagged` (off by default) which makes delete/edit logs fire only for
+  messages that matched a good/bad word, and `debug`.
 - AI contextual detection (off by default; needs `ANTHROPIC_API_KEY`), with a
   configurable confidence threshold.
 - Command access is **handled natively by Discord** (no in-code allowlist). The

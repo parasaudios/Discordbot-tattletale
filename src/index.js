@@ -130,6 +130,14 @@ function watched(serverId, channel) {
   return list.includes(channel?.id) || (channel?.parentId && list.includes(channel.parentId));
 }
 
+// True if the content matches a configured good or bad word (i.e. it "caused a
+// trigger"). Used to gate delete/edit logging when logFlaggedOnly is on.
+function messageFlagged(serverId, content) {
+  if (!content) return false;
+  const s = getServer(serverId);
+  return Boolean(findMatch(content, s.goodWords) || findMatch(content, s.badWords));
+}
+
 // Pure severity decision (extracted so it can be unit-tested):
 //   high   = bad word AND AI confirmed harmful
 //   medium = AI confirmed harmful with no bad word (caught via AI trigger)
@@ -331,8 +339,11 @@ client.on(Events.MessageCreate, (message) => screenMessage(message, 'posted'));
 // --- Deleted messages ---
 client.on(Events.MessageDelete, async (message) => {
   if (!message.guild || message.author?.bot) return;
-  if (!getServer(message.guild.id).logDeletes) return;
+  const s = getServer(message.guild.id);
+  if (!s.logDeletes) return;
   if (!watched(message.guild.id, message.channel)) return;
+  // Only log trigger-related deletes when logFlaggedOnly is on.
+  if (s.logFlaggedOnly && !messageFlagged(message.guild.id, message.content)) return;
 
   const embed = new EmbedBuilder()
     .setTitle('🗑️ Message deleted')
@@ -351,10 +362,15 @@ client.on(Events.MessageDelete, async (message) => {
 // would never be logged. Uncached messages arrive with only an ID.
 client.on(Events.MessageBulkDelete, async (messages, channel) => {
   const server = channel.guild;
-  if (!server || !getServer(server.id).logDeletes) return;
+  if (!server) return;
+  const s = getServer(server.id);
+  if (!s.logDeletes) return;
   if (!watched(server.id, channel)) return;
 
-  const human = [...messages.values()].filter((m) => !m.author?.bot);
+  let human = [...messages.values()].filter((m) => !m.author?.bot);
+  // When logFlaggedOnly is on, only report the messages that matched a word.
+  if (s.logFlaggedOnly) human = human.filter((m) => messageFlagged(server.id, m.content));
+  if (s.logFlaggedOnly && !human.length) return; // nothing trigger-related in this purge
   const lines = human.slice(0, 15).map((m) => {
     const who = m.author ? m.author.tag : 'Unknown (uncached)';
     return `**${who}:** ${truncate(m.content || '*no cached content*', 120)}`;
@@ -366,7 +382,7 @@ client.on(Events.MessageBulkDelete, async (messages, channel) => {
     .setColor(0xFEE75C)
     .addFields(
       { name: 'Channel', value: `${channel}`, inline: true },
-      { name: 'Total deleted', value: `${messages.size}`, inline: true },
+      { name: s.logFlaggedOnly ? 'Flagged deleted' : 'Total deleted', value: `${s.logFlaggedOnly ? human.length : messages.size}`, inline: true },
       {
         name: 'Cached messages',
         value: lines.length ? truncate(lines.join('\n') + more) : '*None were cached, so content is unavailable.*',
@@ -395,7 +411,11 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   if (!oldMessage.partial && oldMessage.content === newMessage.content) return;
   if (!watched(newMessage.guild.id, newMessage.channel)) return;
 
-  if (getServer(newMessage.guild.id).logEdits) {
+  const es = getServer(newMessage.guild.id);
+  const flaggedEdit = !es.logFlaggedOnly
+    || messageFlagged(newMessage.guild.id, oldMessage.content)
+    || messageFlagged(newMessage.guild.id, newMessage.content);
+  if (es.logEdits && flaggedEdit) {
     const embed = new EmbedBuilder()
       .setTitle('✏️ Message edited')
       .setColor(0x5865F2)
@@ -659,10 +679,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
       case 'toggle': {
         const feature = interaction.options.getString('feature');
         const enabled = interaction.options.getBoolean('enabled');
-        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords', debug: 'debugLogging' };
+        const map = { deletes: 'logDeletes', edits: 'logEdits', badwords: 'logBadWords', debug: 'debugLogging', onlyflagged: 'logFlaggedOnly' };
         setToggle(serverId, map[feature], enabled);
         if (feature === 'debug') {
           return reply(interaction, `✅ Debug logging is now **${enabled ? 'ON' : 'OFF'}** (gateway firehose + per-command access diagnostic).`);
+        }
+        if (feature === 'onlyflagged') {
+          return reply(interaction, enabled
+            ? '✅ **Only-flagged** mode ON — delete/edit logs now fire **only** for messages that matched a good/bad word.'
+            : '✅ **Only-flagged** mode OFF — delete/edit logs fire for **all** messages again.');
         }
         return reply(interaction, `✅ Logging for **${feature}** is now **${enabled ? 'ON' : 'OFF'}**.`);
       }
@@ -703,6 +728,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `Watching: ${s.watchChannels.length ? s.watchChannels.map((id) => `<#${id}>`).join(', ') : '*all channels*'}`,
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
+            `Only log flagged deletes/edits: ${s.logFlaggedOnly ? 'ON' : 'OFF'}`,
             `Log bad words: ${s.logBadWords ? 'ON' : 'OFF'}`,
             `Judging: ${s.aiEnabled ? 'ON' : 'OFF'}`,
             `Judge threshold: ${s.aiThreshold} (${Math.round(s.aiThreshold * 100)}% confidence)`,

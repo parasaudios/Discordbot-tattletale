@@ -140,7 +140,7 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 | `/tattletale badword remove\|list\|clear` | Remove one / show all / clear all bad words. |
 | `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role…>]` | Add a **good word** (safe, notify-only, **no Judge**). Optional per-word channel + ping (one or more users/roles). |
 | `/tattletale goodword remove\|list\|clear` | Remove one / show all / clear all good words. |
-| `/tattletale toggle feature:<deletes\|edits\|badwords\|debug> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
+| `/tattletale toggle feature:<deletes\|edits\|badwords\|debug\|onlyflagged> enabled:<true\|false>` | Turn a logging feature (or **debug** logging) on or off. |
 | `/tattletale judge enabled:<true\|false>` | Turn contextual judging on or off. |
 | `/tattletale judgethreshold value:<0–1>` | Set how confident the Judge must be before it alerts. |
 | `/tattletale judgewords add phrase:<text>` | Add a scam/harassment phrase that triggers Judge review. |
