@@ -252,6 +252,12 @@ async function screenMessage(message, origin = 'posted') {
   const settings = getServer(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
 
+  // If this alert came from an edit AND an Edit channel is set, that channel
+  // overrides the normal routing — all edit-caused alerts go to the one Edit
+  // channel (not split by severity). If no Edit channel is set, alerts route by
+  // severity/per-word as usual. null = no override.
+  const editOverride = origin === 'edited' ? (settings.alertChannelEdits || null) : null;
+
   const baseFields = () => ([
     { name: 'User', value: `${message.author} (${message.author.tag})`, inline: true },
     { name: 'Channel', value: `${message.channel}`, inline: true },
@@ -270,7 +276,7 @@ async function screenMessage(message, origin = 'posted') {
         { name: 'Jump', value: `[Go to message](${message.url})` },
       )
       .setTimestamp(message.createdAt);
-    await sendAlert(message.guild, embed, goodHit.channelId ?? channelForTier(message.guild.id, 'good'), goodHit.notify);
+    await sendAlert(message.guild, embed, editOverride ?? goodHit.channelId ?? channelForTier(message.guild.id, 'good'), goodHit.notify);
   }
 
   // --- Bad words: ALWAYS AI-checked so a severity tier can be determined. ---
@@ -313,9 +319,9 @@ async function screenMessage(message, origin = 'posted') {
     .addFields(fields)
     .setTimestamp(message.createdAt);
 
-  // A bad word routes to its own channel/ping if set; otherwise fall back to the
-  // tier channel (then the default). AI-only catches use the tier channel.
-  const channelId = badHit?.channelId ?? channelForTier(message.guild.id, tier);
+  // Edit channel (if set) overrides; otherwise a bad word routes to its own
+  // channel/ping if set, then the severity tier channel, then the default.
+  const channelId = editOverride ?? badHit?.channelId ?? channelForTier(message.guild.id, tier);
   await sendAlert(message.guild, embed, channelId, badHit?.notify);
 }
 
