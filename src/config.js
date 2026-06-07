@@ -77,9 +77,10 @@ const DEFAULTS = {
   logDeletes: true,
   logEdits: true,
   logBadWords: true,
-  // When true, delete/edit logs ONLY fire for messages that matched a good/bad
-  // word (i.e. trigger-related); benign deletes/edits are not logged.
-  logFlaggedOnly: false,
+  // When true (default), delete/edit logs ONLY fire for messages that matched a
+  // good/bad word (trigger-related); benign deletes/edits are not logged. Turn
+  // off (toggle onlyflagged) to log ALL deletes/edits as a full activity log.
+  logFlaggedOnly: true,
   // When true, detect filter evasion by screening a user's recent messages
   // combined together (catches a bad word split across several messages).
   antiSplit: false,
