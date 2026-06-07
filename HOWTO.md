@@ -135,7 +135,7 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 
 | Command | What it does |
 |---------|--------------|
-| `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that category there. |
+| `/tattletale setchannel channel:<#channel> [tier:default\|good\|high\|medium\|low\|deletes\|edits]` | Set where alerts go. With no `tier`, sets the default/fallback channel for everything. With a `tier`, routes just that category there. |
 | `/tattletale badword add word:<text> [channel:<#ch>] [notify:<@user/role…>]` | Add a **bad word** (Judge-checked → tiered). Optional per-word channel + ping (one or more users/roles). |
 | `/tattletale badword remove\|list\|clear` | Remove one / show all / clear all bad words. |
 | `/tattletale goodword add word:<text> [channel:<#ch>] [notify:<@user/role…>]` | Add a **good word** (safe, notify-only, **no Judge**). Optional per-word channel + ping (one or more users/roles). |

@@ -37,6 +37,8 @@ const command = new SlashCommandBuilder()
             { name: 'High — bad word + Judge confirms harmful', value: 'high' },
             { name: 'Medium — Judge-only harmful', value: 'medium' },
             { name: 'Low — flagged but harmless', value: 'low' },
+            { name: 'Deletes — deleted/bulk-delete logs', value: 'deletes' },
+            { name: 'Edits — edited-message logs', value: 'edits' },
           )))
   .addSubcommandGroup((g) =>
     g.setName('badword')

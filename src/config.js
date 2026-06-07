@@ -62,6 +62,9 @@ const DEFAULTS = {
   alertChannelHigh: null,
   alertChannelMedium: null,
   alertChannelLow: null,
+  // Optional channels for activity logs (null = fall back to alertChannelId).
+  alertChannelDeletes: null,
+  alertChannelEdits: null,
   // Word lists. Each entry is { word, channelId, notify } so a word can route to
   // its own channel and ping its own user/role (null = fall back to defaults).
   //   goodWords = safe words staff want a heads-up about; NO AI check (green).
@@ -167,6 +170,8 @@ const TIER_CHANNEL_KEYS = {
   high: 'alertChannelHigh',
   medium: 'alertChannelMedium',
   low: 'alertChannelLow',
+  deletes: 'alertChannelDeletes',
+  edits: 'alertChannelEdits',
 };
 
 // Set the channel for a tier ('default' sets the fallback used by any tier

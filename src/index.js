@@ -337,7 +337,7 @@ client.on(Events.MessageDelete, async (message) => {
       { name: 'Content', value: truncate(message.content) },
     )
     .setTimestamp(new Date());
-  await sendAlert(message.guild, embed);
+  await sendAlert(message.guild, embed, channelForTier(message.guild.id, 'deletes'));
 });
 
 // --- Bulk-deleted messages (purges, ban-with-message-delete, mod tools) ---
@@ -367,7 +367,7 @@ client.on(Events.MessageBulkDelete, async (messages, channel) => {
       },
     )
     .setTimestamp(new Date());
-  await sendAlert(server, embed);
+  await sendAlert(server, embed, channelForTier(server.id, 'deletes'));
 });
 
 // --- Edited messages ---
@@ -401,7 +401,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
         { name: 'Jump', value: `[Go to message](${newMessage.url})` },
       )
       .setTimestamp(new Date());
-    await sendAlert(newMessage.guild, embed);
+    await sendAlert(newMessage.guild, embed, channelForTier(newMessage.guild.id, 'edits'));
   }
 
   // Re-screen the edited content so a banned word / scam edited in after posting
@@ -625,6 +625,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           high: '🔴 high-severity alerts',
           medium: '🟠 medium (Judge-only) alerts',
           low: '🟡 low / harmless alerts',
+          deletes: '🗑️ deleted-message logs',
+          edits: '✏️ edited-message logs',
         }[tier];
         let msg = `✅ ${tierLabel} will now be sent to ${channel}.`;
         if (tier !== 'default') {
@@ -690,6 +692,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
             `• 🔴 High alerts: ${tierCh(s.alertChannelHigh)}`,
             `• 🟠 Medium alerts: ${tierCh(s.alertChannelMedium)}`,
             `• 🟡 Low/harmless alerts: ${tierCh(s.alertChannelLow)}`,
+            `• 🗑️ Delete logs: ${tierCh(s.alertChannelDeletes)}`,
+            `• ✏️ Edit logs: ${tierCh(s.alertChannelEdits)}`,
             `Watching: ${s.watchChannels.length ? s.watchChannels.map((id) => `<#${id}>`).join(', ') : '*all channels*'}`,
             `Log deletes: ${s.logDeletes ? 'ON' : 'OFF'}`,
             `Log edits: ${s.logEdits ? 'ON' : 'OFF'}`,
