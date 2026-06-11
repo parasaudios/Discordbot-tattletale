@@ -62,8 +62,9 @@ v14** (Node ≥18, ESM). Source lives in `src/`:
 
 ### Word lists (three, independent)
 
-Each good/bad word is stored as `{ word, channelId, notify }` — both overrides
-optional. Adding an existing word **updates** it (upsert), changing only
+Each good/bad word is stored as `{ word, channelId, notify, wholeword }` — all
+overrides optional. `wholeword:true` matches only a standalone word (`para` hits
+`para`/`P@r@` but not `paradise`). Adding an existing word **updates** it (upsert), changing only
 the fields you pass; remove + re-add to clear a field. Matching is case-insensitive, substring-based, and evasion-resistant
 (handles leetspeak, stretched letters, inserted separators).
 

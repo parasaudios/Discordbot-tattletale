@@ -244,23 +244,26 @@ export function clearWatchChannels(serverId) {
 }
 
 // --- Good / bad word management (case-insensitive, stored lowercased) ---
-// Each entry: { word, channelId, notify }. channelId/notify are optional
-// per-word overrides (alert channel + a user/role mention to ping).
+// Each entry: { word, channelId, notify, wholeword }. channelId/notify are
+// optional per-word overrides; wholeword=true matches only as a standalone word
+// (e.g. "para" matches "para" but not "paradise").
 
 // Add a word, or UPDATE it if it already exists (upsert). Only the fields you
 // pass are changed — re-adding with a new `notify` keeps the existing `channel`,
 // and vice versa. (To clear a field, remove the word and add it fresh.)
-function addWordTo(list, word, channelId, notify) {
+function addWordTo(list, word, channelId, notify, wholeword) {
   const w = word.trim().toLowerCase();
   if (!w) return { ok: false, reason: 'empty' };
   let entry = list.find((e) => e.word === w);
   const updated = Boolean(entry);
   if (!entry) {
-    entry = { word: w, channelId: null, notify: null };
+    entry = { word: w, channelId: null, notify: null, wholeword: false };
     list.push(entry);
   }
+  if (entry.wholeword === undefined) entry.wholeword = false;
   if (channelId !== null && channelId !== undefined) entry.channelId = channelId;
   if (notify !== null && notify !== undefined) entry.notify = notify;
+  if (wholeword !== null && wholeword !== undefined) entry.wholeword = wholeword;
   return { ok: true, word: w, updated, entry: { ...entry } };
 }
 
@@ -272,9 +275,9 @@ function removeWordFrom(list, word) {
   return { ok: true, word: w };
 }
 
-export function addBadWord(serverId, word, channelId, notify) {
+export function addBadWord(serverId, word, channelId, notify, wholeword) {
   const g = getServer(serverId);
-  const r = addWordTo(g.badWords, word, channelId, notify);
+  const r = addWordTo(g.badWords, word, channelId, notify, wholeword);
   if (r.ok) persist();
   return r;
 }
@@ -295,9 +298,9 @@ export function listBadWords(serverId) {
   return getServer(serverId).badWords.map((e) => ({ ...e }));
 }
 
-export function addGoodWord(serverId, word, channelId, notify) {
+export function addGoodWord(serverId, word, channelId, notify, wholeword) {
   const g = getServer(serverId);
-  const r = addWordTo(g.goodWords, word, channelId, notify);
+  const r = addWordTo(g.goodWords, word, channelId, notify, wholeword);
   if (r.ok) persist();
   return r;
 }

@@ -93,11 +93,20 @@ function normalize(text) {
 function findMatch(content, entries) {
   if (!entries.length) return null;
   const haystack = normalize(content);
-  if (!haystack) return null;
+  let tokens = null; // normalized whitespace-split words (computed lazily for whole-word entries)
   for (const e of entries) {
     const word = typeof e === 'string' ? e : e.word;
     const needle = normalize(word);
-    if (needle && haystack.includes(needle)) return e;
+    if (!needle) continue;
+    if (typeof e === 'object' && e.wholeword) {
+      // Whole-word: match only a standalone token, so "para" hits "para"/"P@r@"
+      // but not "paradise". Each word is normalized the same way (leet/stretch/
+      // strip-punctuation), so "(para)!" still collapses to "para".
+      if (tokens === null) tokens = (content || '').split(/\s+/).map(normalize);
+      if (tokens.includes(needle)) return e;
+    } else if (haystack && haystack.includes(needle)) {
+      return e;
+    }
   }
   return null;
 }
@@ -642,6 +651,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         const extra = [];
         if (e.channelId) extra.push(`→ <#${e.channelId}>`);
         if (e.notify) extra.push(`pings ${e.notify}`);
+        if (e.wholeword) extra.push('whole word');
         return `\`${e.word}\`${extra.length ? ` (${extra.join(', ')})` : ''}`;
       };
       switch (sub) {
@@ -650,12 +660,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
           const channel = interaction.options.getChannel('channel');
           if (channel && !channel.isTextBased()) return reply(interaction, 'Please choose a text channel.');
           const notify = parseMentions(interaction.options.getString('notify'));
-          const r = fns.add(serverId, word, channel?.id ?? null, notify);
+          const wholeword = interaction.options.getBoolean('wholeword'); // null if not provided
+          const r = fns.add(serverId, word, channel?.id ?? null, notify, wholeword);
           if (!r.ok) return reply(interaction, 'That word is empty or invalid.');
           const e = r.entry;
           const bits = [];
           if (e.channelId) bits.push(`alerts → <#${e.channelId}>`);
           if (e.notify) bits.push(`pings ${e.notify}`);
+          if (e.wholeword) bits.push('whole-word match');
           const detail = bits.length ? ` — ${bits.join(', ')}` : '';
           const verb = r.updated ? 'Updated' : 'Added';
           return reply(interaction, `✅ ${verb} \`${r.word}\` in the **${label}-word** list${detail}.`);

@@ -51,7 +51,9 @@ const command = new SlashCommandBuilder()
           .addChannelOption((o) =>
             o.setName('channel').setDescription('Channel for this word\'s alerts (else default)').addChannelTypes(ChannelType.GuildText))
           .addStringOption((o) =>
-            o.setName('notify').setDescription('User(s)/role(s) to ping — @mention one or more')))
+            o.setName('notify').setDescription('User(s)/role(s) to ping — @mention one or more'))
+          .addBooleanOption((o) =>
+            o.setName('wholeword').setDescription('Match only as a whole word (e.g. "para" but not "paradise")')))
       .addSubcommand((s) =>
         s.setName('remove')
           .setDescription('Remove a bad word.')
@@ -69,7 +71,9 @@ const command = new SlashCommandBuilder()
           .addChannelOption((o) =>
             o.setName('channel').setDescription('Channel for this word\'s alerts (else default)').addChannelTypes(ChannelType.GuildText))
           .addStringOption((o) =>
-            o.setName('notify').setDescription('User(s)/role(s) to ping — @mention one or more')))
+            o.setName('notify').setDescription('User(s)/role(s) to ping — @mention one or more'))
+          .addBooleanOption((o) =>
+            o.setName('wholeword').setDescription('Match only as a whole word (e.g. "para" but not "paradise")')))
       .addSubcommand((s) =>
         s.setName('remove')
           .setDescription('Remove a good word.')
