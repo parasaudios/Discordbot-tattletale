@@ -102,8 +102,9 @@ the fields you pass; remove + re-add to clear a field. Matching is case-insensit
 - AI contextual detection (off by default; needs `ANTHROPIC_API_KEY`), with a
   configurable confidence threshold.
 - Command access is **handled natively by Discord** (no in-code allowlist). The
-  command sets `setDefaultMemberPermissions(ManageGuild)`, so by default only
-  Manage Server members see/use it; a server admin grants extra roles/members via
+  command sets `setDefaultMemberPermissions(<COMMAND_PERMISSION env, default
+  ManageGuild>)`, so by default only Manage Server members see/use it (set
+  `COMMAND_PERMISSION` to a permission your mods have, e.g. `ManageChannels`); a server admin grants extra roles/members via
   Server Settings → Integrations → Tattletale. The interaction handler runs no
   permission gate of its own — any interaction Discord delivers is already authorized.
 
@@ -123,7 +124,9 @@ a structure change just needs a restart/redeploy.
 volume so `settings.json` survives redeploys), `ANTHROPIC_API_KEY` (optional, AI),
 `PORT` (healthcheck server; host-provided), `LOG_DISCORD_DEBUG` (set `true` to
 enable the gateway debug firehose; off by default), `LOG_ACCESS_DIAG` (set `true`
-to log a per-command access diagnostic; off by default).
+to log a per-command access diagnostic; off by default), `COMMAND_PERMISSION`
+(permission a member needs to see/use `/tattletale`, e.g. `ManageChannels`,
+`ModerateMembers`; default `ManageGuild`).
 
 ### Deployment & reliability (Railway) — important
 

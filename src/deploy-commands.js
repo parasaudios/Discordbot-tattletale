@@ -11,15 +11,28 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 
-// setDefaultMemberPermissions(ManageGuild): by default Discord only shows and
-// allows the command for members with Manage Server. To reveal it to a specific
-// role/member (with or without Manage Server), a server admin uses Discord's
-// native command permissions under Server Settings → Integrations → Tattletale.
-// Access is handled entirely by Discord; the bot keeps no role allowlist.
+// Which Discord permission a member needs to SEE and USE /tattletale. Discord
+// hides a command from anyone lacking this permission. Set the COMMAND_PERMISSION
+// env var to any permission name (e.g. ManageChannels, ModerateMembers,
+// KickMembers, ManageMessages) — accepts spaces/underscores/any case. Defaults to
+// Manage Server. This is the only bot-side way to restrict visibility: Discord
+// gates commands by permission, not by role (per-role visibility needs the
+// Server Settings → Integrations override, set by a human admin).
+function resolveAccessPermission(name) {
+  if (!name) return PermissionFlagsBits.ManageGuild;
+  const norm = name.replace(/[\s_]/g, '').toLowerCase();
+  for (const key of Object.keys(PermissionFlagsBits)) {
+    if (key.toLowerCase() === norm) return PermissionFlagsBits[key];
+  }
+  console.warn(`Unknown COMMAND_PERMISSION "${name}" — falling back to ManageGuild. Try e.g. ManageChannels, ModerateMembers, KickMembers, ManageMessages.`);
+  return PermissionFlagsBits.ManageGuild;
+}
+const ACCESS_PERMISSION = resolveAccessPermission(process.env.COMMAND_PERMISSION);
+
 const command = new SlashCommandBuilder()
   .setName('tattletale')
   .setDescription('Configure the Tattletale moderation bot.')
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .setDefaultMemberPermissions(ACCESS_PERMISSION)
   .addSubcommand((s) =>
     s.setName('setchannel')
       .setDescription('Set where alerts go (optionally per severity tier).')
