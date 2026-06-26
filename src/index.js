@@ -5,13 +5,17 @@ import {
   Client, GatewayIntentBits, Partials, Events,
 } from 'discord.js';
 import { anyDebugEnabled } from './config.js';
+import { reload as reloadLicenses } from './licenses.js';
 import {
   screenMessage, screenSplitEvasion, handleDelete, handleBulkDelete, handleEdit, sweepBuffers,
 } from './screening.js';
 import { handleInteraction } from './commands.js';
-import { command } from './deploy-commands.js';
+import { command, ownerCommand } from './deploy-commands.js';
 
 const commandJSON = command.toJSON();
+const ownerCommandJSON = ownerCommand.toJSON();
+// Owner key-management subcommands are registered only in your own server.
+const jsonForServer = (id) => (process.env.OWNER_SERVER_ID && id === process.env.OWNER_SERVER_ID ? ownerCommandJSON : commandJSON);
 
 // Timestamp every log line so output can be correlated to the exact moment the
 // host reports a crash/restart. Installed before anything else logs.
@@ -35,7 +39,7 @@ async function registerCommandsEverywhere(c) {
   }
   for (const server of c.guilds.cache.values()) {
     try {
-      await server.commands.set([commandJSON]);
+      await server.commands.set([jsonForServer(server.id)]);
       console.log(`Registered /tattletale in "${server.name}" (${server.id}).`);
     } catch (err) {
       console.error(`Could not register commands in ${server.id}:`, err?.message || err);
@@ -70,7 +74,7 @@ client.once(Events.ClientReady, async (c) => {
 // Register the command + set nickname the instant the bot joins a new server.
 client.on(Events.GuildCreate, async (server) => {
   try {
-    await server.commands.set([commandJSON]);
+    await server.commands.set([jsonForServer(server.id)]);
     console.log(`Joined "${server.name}" (${server.id}) — registered /tattletale.`);
   } catch (err) {
     console.error(`Could not register commands in new server ${server.id}:`, err?.message || err);
@@ -146,8 +150,9 @@ if (isMain) {
     console.log(`Heartbeat: up ${Math.round(process.uptime())}s | rss ${mb(m.rss)}MB | heap ${mb(m.heapUsed)}/${mb(m.heapTotal)}MB | discord ${client.isReady() ? 'ready' : 'DOWN'} | ws ping ${Math.round(client.ws?.ping ?? -1)}ms`);
   }, 30_000).unref();
 
-  // Periodically sweep the screening buffers so they don't grow for idle users.
-  setInterval(sweepBuffers, 60_000).unref();
+  // Periodically sweep screening buffers (idle-user memory) and reload the license
+  // store (so CLI-minted/revoked keys are picked up without a restart).
+  setInterval(() => { sweepBuffers(); reloadLicenses(); }, 60_000).unref();
 
   // Gateway debug firehose — off unless a server has debug on or LOG_DISCORD_DEBUG=true.
   const debugForced = process.env.LOG_DISCORD_DEBUG === 'true';

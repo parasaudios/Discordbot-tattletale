@@ -1,13 +1,16 @@
 {
   "name": "discordbot-tattletale",
-  "version": "1.2.0",
-  "description": "A Discord moderation bot (notify-only) that logs deleted/edited messages and alerts mods on good/bad/AI-flagged words, with per-word channel routing and user/role pings.",
+  "version": "1.3.0",
+  "description": "A licensed Discord moderation bot (notify-only): good/bad/Judge word alerts, per-word channel routing + pings, flood control, anti-evasion, and per-server license keys.",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "genkey": "node src/license-cli.js gen",
+    "revokekey": "node src/license-cli.js revoke",
+    "keys": "node src/license-cli.js list"
   },
   "engines": {
     "node": ">=18.0.0"

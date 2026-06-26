@@ -70,6 +70,8 @@ v14** (Node ≥18, ESM). Source lives in `src/`:
 - `src/commands.js` — `/tattletale` slash-command router (`handleInteraction`).
 - `src/config.js` — per-server settings, persisted to `settings.json` (see `DATA_DIR`);
   includes export/import.
+- `src/licenses.js` — per-server license store (`licenses.json`); mint/revoke/activate
+  + the `isLicensed` gate. `src/license-cli.js` — owner CLI (`npm run genkey/keys/revokekey`).
 - `src/deploy-commands.js` — builds the `/tattletale` slash command (exports
   `command`); also a manual `npm run deploy` registrar. Runtime registration is
   done by `index.js`, which registers per-server on ready and on `guildCreate`
@@ -131,12 +133,35 @@ the fields you pass; remove + re-add to clear a field. Matching is case-insensit
   Server Settings → Integrations → Tattletale. The interaction handler runs no
   permission gate of its own — any interaction Discord delivers is already authorized.
 
+### Licensing / paywall (you host one bot; customers invite it)
+
+The bot is gated per-server by a **license key**. Customers can't bypass it because
+they never run the code — only **you** host the instance; cloning the repo gets a
+cloner a *different* free bot (their own token), not your customers or revenue. So:
+keep the **repo private**, all secrets in **env only**, and host it yourself.
+
+- **Store:** `licenses.json` on the `DATA_DIR` volume. Each key:
+  `{ durationDays|null(lifetime), plan, serverId, activatedAt, expiresAt, revoked }`.
+  A key binds to the **first server** that activates it; `expiresAt = activatedAt +
+  durationDays`. `licenseStatus`/`isLicensed` pick the best (lifetime > furthest)
+  non-revoked key. `LICENSE_EXEMPT_SERVERS` + `OWNER_SERVER_ID` are always licensed.
+- **Gate:** `commands.js` blocks every command except `activate`/`license`/`help`
+  on unlicensed servers; `screening.js` no-ops (no alerts) on unlicensed servers.
+- **Customer commands:** `/tattletale activate key:<TT-…>`, `/tattletale license`.
+- **Owner commands** (`genkey`/`revoke`/`keys`): registered **only** in
+  `OWNER_SERVER_ID` (so customers never see them) **and** code-gated to `OWNER_ID`.
+  Also mintable via the CLI (`npm run genkey -- --days 30 --count 5 [--plan pro]`,
+  `--lifetime`; `npm run revokekey -- --key TT-…`; `npm run keys`).
+- **Custom durations** are chosen at mint time (per key). The bot reloads
+  `licenses.json` every 60s so CLI mint/revoke propagate without a restart.
+
 ### Slash commands (`/tattletale`)
 
 `setchannel [tier]`, `badword add|remove|list|clear`, `goodword add|remove|list|clear`,
 `judgewords add|remove|edit|list|clear`, `watch add|remove|list|clear`, `toggle`
 (deletes/edits/badwords/onlyflagged/split/debug), `judge`, `judgethreshold`,
-`help`, `export`, `import`, `settings`. `add` for good/bad words takes optional
+`activate`, `license`, `help`, `export`, `import`, `settings`, plus owner-only
+`genkey`/`revoke`/`keys` (in OWNER_SERVER_ID only). `add` for good/bad words takes optional
 `channel:`, `notify:` (one or more @mentions), and `wholeword:`. Commands are
 re-registered automatically at runtime (per server on ready + on guildCreate), so
 a structure change just needs a restart/redeploy.
@@ -153,7 +178,10 @@ to log a per-command access diagnostic; off by default), `COMMAND_PERMISSION`
 `ModerateMembers`; default `ManageGuild`), `FLOOD_COOLDOWN_MS` (min gap between
 identical alerts; default 8000, 0 disables), `SPLIT_WINDOW_MS`/`SPLIT_MAX_ITEMS`
 (anti-evasion window; default 30000ms / 8 messages), `BOT_NAME` (auto-applied bot
-name; default `TattleTale`).
+name; default `TattleTale`). **Licensing:** `OWNER_ID` (your user id — required for
+owner key commands), `OWNER_SERVER_ID` (your server — owner commands registered
+only here; also licence-exempt), `LICENSE_EXEMPT_SERVERS` (comma-separated always-
+licensed server ids), `LICENSE_PURCHASE_URL` (shown to unlicensed servers).
 
 ### Deployment & reliability (Railway) — important
 
@@ -183,6 +211,17 @@ These fixes exist because of real production issues; do not regress them:
 
 ## Version history
 
+- **1.3.0** — Per-server licensing / paywall.
+  - License-key system (`licenses.js` + `licenses.json`): mint keys with a chosen
+    duration (or lifetime), bind on first activation, expiry, **revocation**.
+  - `/tattletale activate` + `license`; commands and message screening are gated
+    by `isLicensed` (unlicensed servers are inert except activate/license/help).
+  - Owner key management (`genkey`/`revoke`/`keys`) registered only in
+    `OWNER_SERVER_ID` and code-gated to `OWNER_ID`; plus a CLI for self-host.
+  - **Security model:** enforceable only because YOU host the single instance —
+    customers invite the bot, never run the code. Keep the repo private + secrets
+    in env. Self-hosted licensing would be bypassable, by design of all software.
+  - Tests: `licenses.test.js` (generate/activate/expiry/revoke/binding/exempt).
 - **1.2.0** — Modular refactor + safety/quality features (no behaviour change to
   existing alerts; verified by tests).
   - **Architecture:** split `index.js` into `matching.js` (pure, unit-tested),

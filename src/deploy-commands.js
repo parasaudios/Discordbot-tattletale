@@ -29,10 +29,16 @@ function resolveAccessPermission(name) {
 }
 const ACCESS_PERMISSION = resolveAccessPermission(process.env.COMMAND_PERMISSION);
 
-const command = new SlashCommandBuilder()
-  .setName('tattletale')
-  .setDescription('Configure the Tattletale moderation bot.')
-  .setDefaultMemberPermissions(ACCESS_PERMISSION)
+function base() {
+  return new SlashCommandBuilder()
+    .setName('tattletale')
+    .setDescription('Configure the Tattletale moderation bot.')
+    .setDefaultMemberPermissions(ACCESS_PERMISSION);
+}
+
+// All customer-facing subcommands.
+function applyPublic(b) {
+  return b
   .addSubcommand((s) =>
     s.setName('setchannel')
       .setDescription('Set where alerts go (optionally per severity tier).')
@@ -164,6 +170,13 @@ const command = new SlashCommandBuilder()
       .addSubcommand((s) => s.setName('list').setDescription('Show the watched channels.'))
       .addSubcommand((s) => s.setName('clear').setDescription('Watch ALL channels again (clear the list).')))
   .addSubcommand((s) =>
+    s.setName('activate')
+      .setDescription('Activate Tattletale in this server with a license key.')
+      .addStringOption((o) =>
+        o.setName('key').setDescription('Your license key (TT-…)').setRequired(true)))
+  .addSubcommand((s) =>
+    s.setName('license').setDescription('Show this server\'s license status / expiry.'))
+  .addSubcommand((s) =>
     s.setName('help').setDescription('Show a summary of all Tattletale commands.'))
   .addSubcommand((s) =>
     s.setName('export').setDescription('Download this server\'s config as a backup file.'))
@@ -174,11 +187,32 @@ const command = new SlashCommandBuilder()
         o.setName('file').setDescription('The exported JSON config file').setRequired(true)))
   .addSubcommand((s) =>
     s.setName('settings').setDescription('Show the current configuration.'));
+}
 
-// Exported so tests/tools can inspect the command definition without triggering
-// a live registration. The deploy side-effects below only run when this file is
-// executed directly (npm run deploy), not when imported.
-export { command };
+// Owner-only key management. Registered ONLY in OWNER_SERVER_ID (so customers
+// never see it) and additionally gated by OWNER_ID in the command handler.
+function applyOwner(b) {
+  return b
+    .addSubcommand((s) =>
+      s.setName('genkey')
+        .setDescription('[Owner] Generate license key(s).')
+        .addIntegerOption((o) => o.setName('days').setDescription('Validity in days (default 30; ignored if lifetime)').setMinValue(1))
+        .addIntegerOption((o) => o.setName('count').setDescription('How many keys to make (default 1)').setMinValue(1))
+        .addStringOption((o) => o.setName('plan').setDescription('Optional label, e.g. "pro"'))
+        .addBooleanOption((o) => o.setName('lifetime').setDescription('No expiry (overrides days)')))
+    .addSubcommand((s) =>
+      s.setName('revoke')
+        .setDescription('[Owner] Revoke a license key.')
+        .addStringOption((o) => o.setName('key').setDescription('The key to revoke').setRequired(true)))
+    .addSubcommand((s) =>
+      s.setName('keys').setDescription('[Owner] List all license keys.'));
+}
+
+// `command` (public) is registered in customer servers; `ownerCommand` adds the
+// owner key-management subcommands and is registered only in OWNER_SERVER_ID.
+const command = applyPublic(base());
+const ownerCommand = applyOwner(applyPublic(base()));
+export { command, ownerCommand };
 
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) await deploy();

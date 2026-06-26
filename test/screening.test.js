@@ -6,6 +6,8 @@ import { join } from 'node:path';
 
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'tt-scr-'));
 process.env.FLOOD_COOLDOWN_MS = '60000'; // long, so within-test repeats are suppressed
+// Screening is license-gated; exempt the test servers so we test screening, not licensing.
+process.env.LICENSE_EXEMPT_SERVERS = 'sGood,sBad,sClean,sEdit,sFlood,sSplit,sDel';
 const cfg = await import('../src/config.js');
 const scr = await import('../src/screening.js');
 

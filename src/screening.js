@@ -6,6 +6,7 @@ import { EmbedBuilder, AuditLogEvent, PermissionFlagsBits } from 'discord.js';
 import { getServer, channelForTier, listWatchChannels } from './config.js';
 import { classifyMessage } from './ai.js';
 import { findMatch, decideTier, truncate, TIERS } from './matching.js';
+import { isLicensed } from './licenses.js';
 
 // --- Tunables (env-overridable) ---------------------------------------------
 const numEnv = (name, def) => {
@@ -83,6 +84,7 @@ export function messageFlagged(serverId, content) {
 // word past detection that only ran at post time. `origin` is 'posted'|'edited'.
 export async function screenMessage(message, origin = 'posted') {
   if (message.author?.bot || !message.guild || !message.content) return;
+  if (!isLicensed(message.guild.id)) return;
   if (!watched(message.guild.id, message.channel)) return;
   const settings = getServer(message.guild.id);
   const editedNote = origin === 'edited' ? ' (in an edit)' : '';
@@ -160,6 +162,7 @@ export async function screenMessage(message, origin = 'posted') {
 // message does. Opt-in (antiSplit toggle).
 export async function screenSplitEvasion(message) {
   if (message.author?.bot || !message.guild || !message.content) return;
+  if (!isLicensed(message.guild.id)) return;
   const s = getServer(message.guild.id);
   if (!s.antiSplit || !s.badWords.length) return;
   if (!watched(message.guild.id, message.channel)) return;
@@ -232,6 +235,7 @@ async function whoDeleted(guild, message) {
 
 export async function handleDelete(message) {
   if (!message.guild || message.author?.bot) return;
+  if (!isLicensed(message.guild.id)) return;
   const s = getServer(message.guild.id);
   if (!s.logDeletes) return;
   if (!watched(message.guild.id, message.channel)) return;
@@ -254,6 +258,7 @@ export async function handleDelete(message) {
 export async function handleBulkDelete(messages, channel) {
   const server = channel.guild;
   if (!server) return;
+  if (!isLicensed(server.id)) return;
   const s = getServer(server.id);
   if (!s.logDeletes) return;
   if (!watched(server.id, channel)) return;
@@ -281,6 +286,7 @@ export async function handleBulkDelete(messages, channel) {
 
 export async function handleEdit(oldMessage, newMessage) {
   if (!newMessage.guild) return;
+  if (!isLicensed(newMessage.guild.id)) return;
   // Only a real user content edit sets editedTimestamp (filters embeds/pins).
   if (!newMessage.editedTimestamp) return;
   if (newMessage.partial) {

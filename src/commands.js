@@ -13,6 +13,23 @@ import {
 } from './config.js';
 import { parseMentions, truncate } from './matching.js';
 import { sendAlert } from './screening.js';
+import {
+  isLicensed, licenseStatus, activate, generateKeys, revokeKey, listKeys,
+} from './licenses.js';
+
+// Commands usable even when the server isn't licensed (so they can activate).
+const ALWAYS_ALLOWED = new Set(['activate', 'license', 'help']);
+// Owner-only key management (also hidden from customers via OWNER_SERVER_ID).
+const OWNER_SUBS = new Set(['genkey', 'revoke', 'keys']);
+
+function unlicensedMessage() {
+  const buy = process.env.LICENSE_PURCHASE_URL;
+  return [
+    '🔒 **Tattletale isn\'t active in this server.**',
+    'Activate it with `/tattletale activate key:<your-key>`.',
+    buy ? `Get a key here: ${buy}` : 'Ask the bot owner for a license key.',
+  ].join('\n');
+}
 
 const reply = (interaction, content) =>
   interaction.reply({ content, flags: MessageFlags.Ephemeral });
@@ -44,6 +61,7 @@ const HELP = [
   '`/tattletale watch add|remove|list|clear` — which channels to monitor (empty = all).',
   '`/tattletale toggle feature:<deletes|edits|badwords|onlyflagged|split|debug> enabled:` — feature switches.',
   '`/tattletale export` / `import file:` — back up or restore this server\'s config.',
+  '`/tattletale activate key:` — activate this server with a license key. `/tattletale license` — show status.',
   '`/tattletale settings` — show everything currently configured.',
 ].join('\n');
 
@@ -58,6 +76,28 @@ export async function handleInteraction(interaction) {
   const group = interaction.options.getSubcommandGroup(false);
   const sub = interaction.options.getSubcommand();
 
+  // Owner-only key management — gated by OWNER_ID (defense-in-depth; the
+  // subcommands are also only registered in OWNER_SERVER_ID).
+  if (OWNER_SUBS.has(sub)) {
+    if (!process.env.OWNER_ID || interaction.user.id !== process.env.OWNER_ID) {
+      return reply(interaction, '⛔ Only the bot owner can manage license keys.');
+    }
+    try {
+      if (sub === 'genkey') return handleGenkey(interaction);
+      if (sub === 'revoke') return handleRevoke(interaction);
+      return handleKeys(interaction);
+    } catch (err) {
+      console.error(err);
+      if (!interaction.replied) return reply(interaction, 'Something went wrong.');
+      return undefined;
+    }
+  }
+
+  // License gate — an unlicensed server can only activate / check status / get help.
+  if (!(group == null && ALWAYS_ALLOWED.has(sub)) && !isLicensed(serverId)) {
+    return reply(interaction, unlicensedMessage());
+  }
+
   await maybeAccessDiagnostic(interaction, serverId, group, sub);
 
   try {
@@ -70,6 +110,8 @@ export async function handleInteraction(interaction) {
       case 'toggle': return handleToggle(interaction, serverId);
       case 'judge': return handleJudge(interaction, serverId);
       case 'judgethreshold': return handleJudgeThreshold(interaction, serverId);
+      case 'activate': return await handleActivate(interaction, serverId);
+      case 'license': return handleLicenseStatus(interaction, serverId);
       case 'help': return reply(interaction, HELP);
       case 'export': return await handleExport(interaction, serverId);
       case 'import': return await handleImport(interaction, serverId);
@@ -311,6 +353,60 @@ function handleSettings(interaction, serverId) {
     'Command access: set by the command\'s required permission (COMMAND_PERMISSION) + Server Settings → Integrations.',
     `Storage: ${persistence}`,
   ].join('\n'));
+}
+
+// --- Licensing -------------------------------------------------------------
+
+async function handleActivate(interaction, serverId) {
+  const r = activate(serverId, interaction.options.getString('key'));
+  if (!r.ok) {
+    const m = {
+      invalid: 'That key is not valid.',
+      revoked: 'That key has been revoked.',
+      bound_elsewhere: 'That key is already activated in another server.',
+    }[r.reason] || 'Could not activate that key.';
+    return reply(interaction, `❌ ${m}`);
+  }
+  const until = r.expiresAt ? `until <t:${Math.floor(r.expiresAt / 1000)}:F>` : '**with no expiry (lifetime)**';
+  return reply(interaction, `✅ Tattletale is now active in this server ${until}.${r.plan ? ` Plan: ${r.plan}.` : ''}\nRun \`/tattletale setchannel\` to get started, or \`/tattletale help\` for the full list.`);
+}
+
+function handleLicenseStatus(interaction, serverId) {
+  const st = licenseStatus(serverId);
+  if (st.exempt) return reply(interaction, '✅ This server is licence-exempt (owner/test server) — full access, no key needed.');
+  if (!st.licensed) return reply(interaction, unlicensedMessage());
+  const t = st.expiresAt ? Math.floor(st.expiresAt / 1000) : null;
+  const when = t ? `expires <t:${t}:R> (<t:${t}:F>)` : 'never expires (lifetime)';
+  return reply(interaction, `✅ Licensed${st.plan ? ` — plan: ${st.plan}` : ''}. ${when}.`);
+}
+
+// --- Owner-only key management ----------------------------------------------
+
+function handleGenkey(interaction) {
+  const lifetime = interaction.options.getBoolean('lifetime') ?? false;
+  const days = lifetime ? null : (interaction.options.getInteger('days') ?? 30);
+  const count = Math.min(interaction.options.getInteger('count') ?? 1, 50);
+  const plan = interaction.options.getString('plan') ?? '';
+  const keys = generateKeys({ durationDays: days, plan, count });
+  const dur = days === null ? 'lifetime' : `${days} days`;
+  return reply(interaction, `✅ Generated **${keys.length}** key(s) — ${dur}${plan ? ` [${plan}]` : ''}:\n${keys.map((k) => `\`${k}\``).join('\n')}`);
+}
+
+function handleRevoke(interaction) {
+  const r = revokeKey(interaction.options.getString('key'));
+  return reply(interaction, r.ok
+    ? `✅ Revoked the key${r.serverId ? ` (was active in server \`${r.serverId}\`)` : ''}.`
+    : '❌ Key not found.');
+}
+
+function handleKeys(interaction) {
+  const keys = listKeys();
+  if (!keys.length) return reply(interaction, 'No keys yet. Make some with `/tattletale genkey`.');
+  const lines = keys.map((k) => {
+    const exp = k.expiresAt ? `<t:${Math.floor(k.expiresAt / 1000)}:d>` : (k.durationDays === null ? 'lifetime' : 'not activated');
+    return `\`${k.key}\` ${k.revoked ? '🚫 ' : ''}${k.serverId ? `server:${k.serverId}` : 'unused'}${k.plan ? ` [${k.plan}]` : ''} · ${exp}`;
+  });
+  return replyPaged(interaction, `**License keys (${keys.length}):**`, lines);
 }
 
 // Opt-in per-command access diagnostic (LOG_ACCESS_DIAG=true or the debug toggle).
