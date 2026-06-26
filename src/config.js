@@ -206,6 +206,44 @@ export function setToggle(serverId, key, value) {
   persist();
 }
 
+// --- Backup / restore -------------------------------------------------------
+// Fields that may be imported from a backup. Channel/role IDs in goodWords/
+// badWords/watchChannels naturally only make sense in the same server.
+const IMPORTABLE_KEYS = [
+  'alertChannelId', 'alertChannelGood', 'alertChannelHigh', 'alertChannelMedium',
+  'alertChannelLow', 'alertChannelDeletes', 'alertChannelEdits',
+  'goodWords', 'badWords', 'watchChannels', 'aiTriggers',
+  'logDeletes', 'logEdits', 'logBadWords', 'logFlaggedOnly', 'antiSplit',
+  'debugLogging', 'aiEnabled', 'aiThreshold',
+];
+
+// Return a deep copy of a server's settings (for /tattletale export).
+export function exportServer(serverId) {
+  return structuredClone(getServer(serverId));
+}
+
+// Apply a previously exported config (from /tattletale import). Only whitelisted
+// keys with a type matching the default are accepted, so a malformed/hostile file
+// can't inject unexpected fields. Returns { ok, applied } or { ok:false, reason }.
+export function importServer(serverId, data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return { ok: false, reason: 'notobject' };
+  const s = getServer(serverId);
+  let applied = 0;
+  for (const key of IMPORTABLE_KEYS) {
+    if (!(key in data)) continue;
+    const val = data[key];
+    const def = DEFAULTS[key];
+    if (Array.isArray(def)) { if (!Array.isArray(val)) continue; }
+    else if (typeof def === 'boolean') { if (typeof val !== 'boolean') continue; }
+    else if (typeof def === 'number') { if (typeof val !== 'number') continue; }
+    else if (val !== null && typeof val !== 'string') continue; // channel-id fields (string|null)
+    s[key] = key === 'aiThreshold' ? Math.min(1, Math.max(0, val)) : val;
+    applied += 1;
+  }
+  persist();
+  return { ok: true, applied };
+}
+
 // True if ANY loaded server has debug logging on (used to gate the global gateway
 // firehose, which isn't tied to a specific server).
 export function anyDebugEnabled() {

@@ -149,6 +149,8 @@ them; grant extra roles/members via Discord's **Server Settings → Integrations
 | `/tattletale judgewords list` | Show all Judge trigger phrases. |
 | `/tattletale judgewords clear` | Reset the Judge trigger list to the built-in defaults. |
 | `/tattletale watch add\|remove\|list\|clear` | Choose which channels the bot monitors. Empty list = **all** channels (default); add channels to restrict it. |
+| `/tattletale help` | Show a summary of every command. |
+| `/tattletale export` / `import file:<config>` | Download a backup of this server's config / restore it. |
 | `/tattletale settings` | Show the current configuration. |
 
 > All replies are **ephemeral** — only you see them, so configuring the bot

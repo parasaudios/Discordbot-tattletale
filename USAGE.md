@@ -81,6 +81,8 @@ Settings → Integrations**. Responses are private (only you see them).
 | `/tattletale judgethreshold value:<0–1>` | How sure the Judge must be before it alerts. Lower = more sensitive, higher = stricter. Default `0.6`. |
 | `/tattletale judgewords add\|remove\|edit\|list\|clear` | Manage the scam/harassment phrases that trigger Judge review. `clear` restores the built-in defaults. |
 | `/tattletale watch add\|remove\|list\|clear` | Choose which channels the bot monitors. Empty = all channels (default). |
+| `/tattletale help` | Summary of every command. |
+| `/tattletale export` / `import file:` | Back up / restore this server's config. |
 | `/tattletale settings` | Show the current configuration. |
 
 ---

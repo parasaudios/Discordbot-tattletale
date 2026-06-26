@@ -51,14 +51,22 @@ This bot is **notify-only**: it watches the server and posts alerts to channels
 you choose. It never deletes, kicks, bans, or punishes. Built with **discord.js
 v14** (Node ≥18, ESM). Source lives in `src/`:
 
-- `src/index.js` — gateway client, event handlers, message screening, slash-command
-  handling, startup/health/diagnostics.
-- `src/config.js` — per-server settings, persisted to `settings.json` (see `DATA_DIR`).
+- `src/index.js` — slim orchestration: gateway client, wires Discord events to the
+  screening/command modules, startup/health/diagnostics, lifecycle.
+- `src/matching.js` — pure, dependency-free helpers (normalize, findMatch,
+  decideTier, parseMentions, truncate, TIERS). Unit-tested in isolation.
+- `src/screening.js` — the screening "brain": screenMessage, anti-split, delete/
+  bulk/edit handlers, flood control, audit-log "who deleted", buffer sweeps.
+- `src/commands.js` — `/tattletale` slash-command router (`handleInteraction`).
+- `src/config.js` — per-server settings, persisted to `settings.json` (see `DATA_DIR`);
+  includes export/import.
 - `src/deploy-commands.js` — builds the `/tattletale` slash command (exports
   `command`); also a manual `npm run deploy` registrar. Runtime registration is
   done by `index.js`, which registers per-server on ready and on `guildCreate`
   (instant, no SERVER_ID/global wait) and clears stale global commands.
 - `src/ai.js` — Anthropic (Claude) contextual classification.
+- `test/` — `node:test` suite (matching/config/screening); `npm test`. CI runs it
+  on push/PR (`.github/workflows/ci.yml`, Node 18/20/22).
 
 ### Word lists (three, independent)
 
@@ -93,7 +101,12 @@ the fields you pass; remove + re-add to clear a field. Matching is case-insensit
 ### Other features
 
 - Logs **deleted**, **bulk-deleted**, and **edited** messages. Edited content is
-  re-screened so a banned word added after posting is still caught.
+  re-screened so a banned word added after posting is still caught. Delete logs
+  attempt an **audit-log lookup** to show *who* removed the message (mod vs self).
+- **Flood control:** identical alerts (same server/user/word/tier) are suppressed
+  within a cooldown (`FLOOD_COOLDOWN_MS`, default 8s) so spam can't flood a channel.
+- **Backup:** `/tattletale export` downloads the server config as JSON; `import`
+  restores it (whitelisted, type-checked keys only).
 - Toggles: `deletes`, `edits`, `badwords` (each on by default), plus
   `onlyflagged` (**on by default**) which makes delete/edit logs fire only for
   messages that matched a good/bad word (turn off for a full activity log),
@@ -112,8 +125,9 @@ the fields you pass; remove + re-add to clear a field. Matching is case-insensit
 
 `setchannel [tier]`, `badword add|remove|list|clear`, `goodword add|remove|list|clear`,
 `judgewords add|remove|edit|list|clear`, `watch add|remove|list|clear`, `toggle`
-(deletes/edits/badwords/debug), `judge`, `judgethreshold`, `settings`. `add` for
-good/bad words takes optional `channel:` and `notify:` (one or more @mentions). Commands are
+(deletes/edits/badwords/onlyflagged/split/debug), `judge`, `judgethreshold`,
+`help`, `export`, `import`, `settings`. `add` for good/bad words takes optional
+`channel:`, `notify:` (one or more @mentions), and `wholeword:`. Commands are
 re-registered automatically at runtime (per server on ready + on guildCreate), so
 a structure change just needs a restart/redeploy.
 
@@ -126,7 +140,10 @@ volume so `settings.json` survives redeploys), `ANTHROPIC_API_KEY` (optional, AI
 enable the gateway debug firehose; off by default), `LOG_ACCESS_DIAG` (set `true`
 to log a per-command access diagnostic; off by default), `COMMAND_PERMISSION`
 (permission a member needs to see/use `/tattletale`, e.g. `ManageChannels`,
-`ModerateMembers`; default `ManageGuild`).
+`ModerateMembers`; default `ManageGuild`), `FLOOD_COOLDOWN_MS` (min gap between
+identical alerts; default 8000, 0 disables), `SPLIT_WINDOW_MS`/`SPLIT_MAX_ITEMS`
+(anti-evasion window; default 30000ms / 8 messages), `BOT_NAME` (auto-applied bot
+name; default `TattleTale`).
 
 ### Deployment & reliability (Railway) — important
 

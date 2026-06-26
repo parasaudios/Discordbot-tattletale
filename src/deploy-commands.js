@@ -164,6 +164,15 @@ const command = new SlashCommandBuilder()
       .addSubcommand((s) => s.setName('list').setDescription('Show the watched channels.'))
       .addSubcommand((s) => s.setName('clear').setDescription('Watch ALL channels again (clear the list).')))
   .addSubcommand((s) =>
+    s.setName('help').setDescription('Show a summary of all Tattletale commands.'))
+  .addSubcommand((s) =>
+    s.setName('export').setDescription('Download this server\'s config as a backup file.'))
+  .addSubcommand((s) =>
+    s.setName('import')
+      .setDescription('Restore config from a backup file (from /tattletale export).')
+      .addAttachmentOption((o) =>
+        o.setName('file').setDescription('The exported JSON config file').setRequired(true)))
+  .addSubcommand((s) =>
     s.setName('settings').setDescription('Show the current configuration.'));
 
 // Exported so tests/tools can inspect the command definition without triggering
