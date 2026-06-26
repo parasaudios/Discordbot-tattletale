@@ -1,6 +1,6 @@
 {
   "name": "discordbot-tattletale",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A Discord moderation bot (notify-only) that logs deleted/edited messages and alerts mods on good/bad/AI-flagged words, with per-word channel routing and user/role pings.",
   "main": "src/index.js",
   "type": "module",

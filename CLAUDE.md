@@ -2,10 +2,20 @@
 
 ## ⚠️ Required workflow for this project
 
-**EVERY TIME** you make a change to this Discord bot, you MUST first consult the
-official Discord developer documentation referenced below and verify your change
-against it. Do not make API calls, define commands, set intents/scopes, or alter
-bot behavior without confirming the relevant detail in the docs first.
+**1. Verify against Discord's docs.** EVERY TIME you make a change to this Discord
+bot, you MUST first consult the official Discord developer documentation
+referenced below and verify your change against it. Do not make API calls, define
+commands, set intents/scopes, or alter bot behavior without confirming the
+relevant detail in the docs first.
+
+**2. Keep this file current — in the same commit.** After ANY change to behavior,
+commands, options, toggles, env vars, architecture, or the *reasoning* behind a
+decision, update the relevant section(s) below so this file never drifts from the
+code. The **Implementation reference**, **Slash commands**, **Environment
+variables**, **Deployment & reliability**, and **Version history** sections are
+the single source of truth. Treat a change as unfinished until CLAUDE.md reflects
+it. When you fix something non-obvious, record *why* (so it isn't regressed later).
+Keep it concise — update existing lines rather than appending duplicates.
 
 ## Project
 
@@ -173,6 +183,30 @@ These fixes exist because of real production issues; do not regress them:
 
 ## Version history
 
+- **1.2.0** — Modular refactor + safety/quality features (no behaviour change to
+  existing alerts; verified by tests).
+  - **Architecture:** split `index.js` into `matching.js` (pure, unit-tested),
+    `screening.js` (screening brain + delete/edit/bulk handlers), and
+    `commands.js` (slash router); `index.js` is now slim orchestration.
+  - **Flood control** (`FLOOD_COOLDOWN_MS`, default 8s): suppress identical
+    alerts (server/user/word/tier) so spam can't flood a channel.
+  - **Who-deleted:** delete logs do a best-effort audit-log lookup (mod vs self).
+  - **Whole-word matching** (`wholeword:true` per word): "para" not "paradise".
+    (Chose deterministic word-boundary matching over AI — it's a boundary problem,
+    not a meaning problem.)
+  - **only-flagged delete/edit logging is now ON by default** — benign deletes/
+    edits aren't logged; toggle `onlyflagged` off for a full activity log.
+  - **Backup/restore** (`/tattletale export` + `import`), `/tattletale help`, and
+    pagination so long word/trigger lists no longer truncate.
+  - **Configurable** anti-evasion window (`SPLIT_WINDOW_MS`/`SPLIT_MAX_ITEMS`) +
+    optional Judge verdict on the combined split text; periodic buffer sweep so
+    in-memory maps don't grow for idle users.
+  - **Configurable command-access permission** (`COMMAND_PERMISSION`, default
+    Manage Server) — gate `/tattletale` behind a permission your mods already have
+    (Discord hides commands by permission, not by role; this is the only bot-side
+    way to restrict visibility without the Integrations override).
+  - **Tests + CI:** `node:test` suite (matching/config/screening) + GitHub Actions
+    on Node 18/20/22.
 - **1.1.0** — Word system overhaul + production reliability.
   - Split the single flagged list into **good / bad / AI** word lists (old
     `flaggedWords` auto-migrate to **bad words**); good words skip AI, bad words
