@@ -259,6 +259,43 @@ heat algorithm are both essentially ML, and nobody objects.
 Net: the anti-AI mood disciplines the *marketing*, not the feature. The moat is the
 detection quality; the buzzword is optional and mostly unsaid.
 
+## 8b. Architecture: everything is a plugin
+
+The do-all bot is built as a **core/host + plugins** (the MEE6 "plugins" model),
+used both as the internal structure *and* the per-server on/off UX.
+
+**Why plugins:**
+- **UX** — servers enable only what they want (Moderation, Leveling, Reaction
+  Roles, Welcome…), toggled on the dashboard. Expected do-all behaviour.
+- **Cost** — an *off* plugin does zero work. Leveling off ⇒ no per-message XP
+  writes for that server. This is the cost lever we keep returning to.
+- **Separation (honors the "keep Tattletale separate" rule)** — Tattletale is the
+  **Moderation plugin**: included as a submodule/dependency and wrapped by a thin
+  **adapter** (in the do-all repo) that implements the plugin interface and
+  *delegates* to Tattletale's exported functions (`screenMessage`, `handleDelete`,
+  …). The plugin boundary **is** the separation boundary — Tattletale's files are
+  never modified.
+- **Monetization** — free vs Pro plugins / per-plugin limits map straight onto tiers.
+- **Reliability** — plugin isolation (each plugin's handlers wrapped/guarded) keeps
+  a bug in a feature plugin from taking down the safety-critical Moderation pillar.
+
+**Core/host owns:** gateway connection + sharding, command router, per-guild config
+store, the plugin registry/loader, license/tier context, and the dashboard API.
+
+**Each plugin provides:** `id`/`name`, slash `commands` it contributes, event hooks
+(`onMessage`, `onMessageDelete`, `onMemberJoin`, `onReactionAdd`, …), a config
+schema + defaults (so the dashboard can render its toggles), `enabledByDefault`
+(Moderation on; Leveling off), and `init(ctx)`/`shutdown()`. The core passes a
+**ctx** with per-guild storage, the client, a logger, and the server's tier/license
+so a plugin can gate features by entitlement.
+
+**Per-guild `enabledPlugins` set** is the dispatch filter — the core only routes
+events to plugins a guild has enabled (the cost + UX lever).
+
+**Scope discipline:** "plugins" = internal module pattern + per-server toggle, **not**
+a third-party plugin marketplace (that needs sandboxing + a security model — a large
+future scope, not now).
+
 ## 9. Deliberate exclusions
 
 - **Music** — YouTube ToS killed the big music bots; high bandwidth cost,
