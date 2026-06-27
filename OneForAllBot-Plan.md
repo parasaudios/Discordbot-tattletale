@@ -58,7 +58,7 @@ $19.99 branding. (A lifetime option, à la MEE6's ~$90, is a later lever.)
 | **Welcome / onboarding** | Text welcome, role-on-join | + **image cards**, multiple/DM welcomes, templating | ✅ | **(D)** basic welcome free; **(C/B)** image cards are ProBot's loved premium polish. |
 | **Leveling / XP** | Message XP, **unlimited level-role rewards**, server leaderboard, basic rank card | + **voice XP**, custom rank-card art, XP multipliers/events, per-channel/role rules, global leveling | ✅ | **(D)** beat MEE6 *and* match Arcane by giving free unlimited rewards; **(A)** voice XP doubles DB writes → paid; **(C)** card art is vanity. |
 | **Web dashboard** (config) | ✅ Full config | + analytics, audit history, scheduled actions | ✅ | **(D)** never paywall configuration (Zeppelin/Carl give dashboards free). Only premium *insights* are paid **(B)**. |
-| **Custom commands / autoresponders** | 10 simple text commands | Unlimited, embeds, visual builder w/ variables | ✅ | **(B)** scale; built with a *visual builder* to dodge Mimu's "one typo breaks it" pain. |
+| **Custom commands / autoresponders** | 10 simple text commands | Unlimited, embeds, visual builder w/ variables | ✅ | **(B)** scale; built with a *visual builder* to dodge Mimu's "one typo breaks it" pain. Dispatch design in §3b. |
 | **Custom-branded bot** (own name/avatar/status) | — | — | ✅ | **(C)** pure vanity + real infra cost. ProBot/Mimu prove people pay $10–20 for this. |
 | **Priority support** | Community/docs | Faster | ✅ Direct | **(C)** Wick's #1 complaint is bad support — we sell *good* support instead of suffering it. |
 
@@ -86,6 +86,33 @@ which is *why* a quota is even feasible. Design consequences:
   counter.
 - *Held in reserve:* a scope lever (Free = AI on bad-word hits only; Pro = adds
   trigger-phrase contextual review) if volume metering proves awkward.
+
+### 3b. How per-server custom commands work (dispatch & scaling)
+
+Custom commands are **per-guild data, not global registrations** — keyed by guild
+ID like word lists/settings already are (`config.js`). Dispatch always resolves
+against *the guild the message/interaction came from*, so two servers with an
+identically-named command never collide.
+
+**Mechanism — store per guild, dispatch one of two ways:**
+1. **Text triggers** (MEE6/Dyno/Carl style) — the bot already receives every message
+   (MessageContent intent); match against that guild's stored triggers on the
+   existing `messageCreate` path. Unlimited, no registration.
+2. **One generic `/tag name:` slash command + autocomplete** (recommended primary) —
+   register a *single* built-in command; autocomplete suggests that server's stored
+   names. Native slash UX, its own namespace (no clash with `/tattletale` or other
+   bots), zero registration churn.
+
+**The trap we avoid:** registering each custom command as its own per-guild slash
+command. Discord caps **100 chat-input commands per guild**, and every add/edit/
+delete would be an API call to reconcile across thousands of servers (churn +
+rate limits). We never do this.
+
+**Scaling:** storage is trivial (small text rows, guild-keyed); runtime is a
+per-guild cache lookup piggybacking the message path we already run; no registration
+load as servers edit commands. **Collisions:** across servers impossible (guild-
+scoped); within a server enforce unique names (upsert, like word lists); vs other
+bots the `/tag` namespace keeps us clear.
 
 ---
 
