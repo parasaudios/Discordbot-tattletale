@@ -180,6 +180,34 @@ honestly costs money or flatters the buyer.
 
 ---
 
+## 8a. Positioning: the AI-sentiment question (important)
+
+Discord communities have a real anti-AI streak — so we position carefully.
+
+**What the backlash actually targets:** *generative* AI (art/text/"slop"),
+buzzword bolt-ons ("AI-powered!!" — MEE6's playbook, now a smell), and AI that
+*acts* autonomously ("the bot banned me, no appeal"). **What people don't mind and
+already use:** invisible ML *detection* — Discord's own AutoMod and Wick's beloved
+heat algorithm are both essentially ML, and nobody objects.
+
+**Why Tattletale is on the safe side of that line:**
+1. **Notify-only** — the AI never punishes; it flags for a *human* who decides. The
+   strongest possible answer to "scary AI moderation."
+2. **Generates nothing** — no AI content, no chatbot persona; it silently scores
+   severity. ~95% of the backlash is about generative AI, none of which we do.
+3. **Optional, off by default** — anti-AI servers run word-filters only, lose nothing core.
+
+**Packaging rules that follow:**
+- **Sell the outcome, not the tech.** Lead with "catches scams/context other bots
+  miss, without false-flagging your members — a human always makes the final call."
+  The word "AI" lives in the docs, not the headline. Avoid MEE6's buzzword energy.
+- **Privacy is a *separate, legitimate* concern** (messages → external API). Honest
+  mitigations: only flagged candidates are sent (the §3a funnel), BYO-key, plain
+  disclosure of what's sent, and a possible local/self-hosted model later.
+
+Net: the anti-AI mood disciplines the *marketing*, not the feature. The moat is the
+detection quality; the buzzword is optional and mostly unsaid.
+
 ## 9. Deliberate exclusions
 
 - **Music** — YouTube ToS killed the big music bots; high bandwidth cost,
