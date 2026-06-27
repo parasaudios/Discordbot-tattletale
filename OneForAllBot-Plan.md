@@ -1,5 +1,12 @@
 # OneForAllBot — Build Pathway & Tier Plan
 
+**Project name:** **Argus** (the all-seeing guardian of myth — chosen for the
+watchful, context-aware moderation identity). To live in its own **separate private
+repo** (`Argus`), with Tattletale included as an unmodified submodule/dependency —
+*not* built into the Tattletale repo. These planning docs will migrate into the
+Argus repo once it exists (blocked for now: this session's GitHub access is scoped
+to the Tattletale repo only).
+
 Companion to `OneForAllBotDoc.md` (the competitive research). This is the **product
 plan**: what we build, in what order, and exactly which features are free, paid, or
 free-but-limited — with the reasoning for every choice.
