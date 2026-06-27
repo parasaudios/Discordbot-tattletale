@@ -49,7 +49,7 @@ $19.99 branding. (A lifetime option, à la MEE6's ~$90, is a later lever.)
 
 | Feature | Free | Pro | Custom | Why this split |
 |---|---|---|---|---|
-| **AI/context moderation** (Tattletale core) | Quota: ~500 AI checks/mo | High/effectively-unlimited volume | + priority routing | **(A)** Real API cost. Free server is still fully protected by word-filters; AI is the enhancement we meter because *we pay per call*. |
+| **AI/context moderation** (Tattletale core) | Generous monthly *candidate-check* allowance (~1–2k), then graceful fallback to word-filtering; **BYO Anthropic key = unlimited free** | Managed/effectively-unlimited (we host the bill) + full scope | + priority routing | **(A)** Real API cost. The AI only fires on messages the free word-filter already flagged (see §3a), so most servers never hit the cap. Safety never fully drops — it falls back to word-filtering, not off. |
 | **Word-filter moderation, anti-evasion, flood control** | ✅ Full | ✅ | ✅ | **(D)** Safety core. Never gated. |
 | **Logging** (delete, **before/after edits**, who-deleted) | ✅ Full | ✅ + dashboard history/analytics | ✅ | **(D)** Full-fidelity logging is a *named market gap* — we give it free as a differentiator; only the analytics view is Pro **(B)**. |
 | **Verification / captcha** | ✅ Captcha gate | + difficulty tuning, account-age/alt rules | ✅ | **(D)** Security. Wick set the "free protection" expectation. |
@@ -62,6 +62,31 @@ $19.99 branding. (A lifetime option, à la MEE6's ~$90, is a later lever.)
 | **Custom-branded bot** (own name/avatar/status) | — | — | ✅ | **(C)** pure vanity + real infra cost. ProBot/Mimu prove people pay $10–20 for this. |
 | **Priority support** | Community/docs | Faster | ✅ Direct | **(C)** Wick's #1 complaint is bad support — we sell *good* support instead of suffering it. |
 
+### 3a. How the AI meter actually works (it does *not* scan every message)
+
+Tattletale already uses a **two-stage funnel** (`screening.js`):
+
+1. **Stage 1 — word match (every message, free, no API).** In-memory string
+   matching against the word lists. Costs nothing, scales infinitely.
+2. **Stage 2 — AI call (candidates only).** `classifyMessage()` fires *only* when
+   Stage 1 found a **bad word** (always AI-checked for severity) or an **AI-trigger
+   phrase**. A clean message never touches the API.
+
+So the meter counts **escalations, not messages** — the funnel cuts volume ~10–100×,
+which is *why* a quota is even feasible. Design consequences:
+
+- **Per-check cost is tiny** (a short classification on a fast model — a fraction of
+  a cent). The free allowance can be generous because the real risk is a pathological
+  server, not ordinary cost.
+- **Graceful fallback, never "off":** when the free allowance is spent, the server
+  drops to Stage-1 word-filtering (still protected) until reset.
+- **BYO key escape hatch:** a server supplying its own `ANTHROPIC_API_KEY` (already
+  supported) runs AI unlimited and free — the cost isn't ours.
+- **Pro's honest value** is "we host the AI bill at scale + full scope," not a bigger
+  counter.
+- *Held in reserve:* a scope lever (Free = AI on bad-word hits only; Pro = adds
+  trigger-phrase contextual review) if volume metering proves awkward.
+
 ---
 
 ## 4. Free-but-limited features (you asked specifically)
@@ -69,7 +94,7 @@ $19.99 branding. (A lifetime option, à la MEE6's ~$90, is a later lever.)
 These give a real, usable taste free; the full version is paid. Each has an honest
 reason (cost or scale), not artificial crippling:
 
-1. **AI/context moderation** — free ~500 checks/mo → Pro unlimited. *(we pay per API call)*
+1. **AI/context moderation** — free generous monthly *candidate-check* allowance (~1–2k) with graceful fallback to word-filtering + **BYO-key = unlimited free** → Pro = managed/unlimited, we host the bill. *(see §3a — AI only fires on already-flagged messages, so this meters escalations, not every message)*
 2. **Reaction roles** — free 5 panels/25 roles → Pro unlimited/250 + buttons & dropdowns.
 3. **Welcome** — free text → Pro image cards + multiple/DM.
 4. **Anti-raid / verification** — free full *protection* → Pro advanced *tuning* + analytics.
