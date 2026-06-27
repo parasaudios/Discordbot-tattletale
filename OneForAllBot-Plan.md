@@ -114,6 +114,30 @@ load as servers edit commands. **Collisions:** across servers impossible (guild-
 scoped); within a server enforce unique names (upsert, like word lists); vs other
 bots the `/tag` namespace keeps us clear.
 
+### 3c. Leveling write strategy (do NOT write XP on every message)
+
+Leveling is the one cost-driver (per-message DB writes), so it uses two stacked
+mechanisms — one for gameplay, one for cost:
+
+1. **Per-user cooldown (gameplay):** award XP at most once per ~60s per user,
+   regardless of message count (MEE6/Arcane standard). This is anti-spam — bursting
+   messages earns nothing extra — and is *better than "every Nth message,"* which
+   would still reward spamming.
+2. **Write-behind batching (cost):** increment XP in a memory/Redis counter on each
+   qualifying message (free); **flush to the durable DB periodically** (~30–60s or
+   every N increments). Many increments coalesce into one write — stacked with the
+   cooldown this cuts DB writes ~10–50× vs naive per-message writes.
+
+**Robustness:** short flush interval caps crash-loss to seconds of XP (invisible);
+use Redis as the buffer so it survives restarts; **flush on graceful shutdown**
+(already wired). Compute level-ups from the *in-memory running total* so role-reward
+announcements stay instant despite deferred writes. Leaderboard reads from the live
+layer (DB may lag a few seconds — fine).
+
+**Why voice XP is Pro:** it awards on a timer to *everyone in a voice channel
+continuously* — a heavier, always-on write pattern than text XP — so the cost
+amplifier sits behind the paid tier.
+
 ---
 
 ## 4. Free-but-limited features (you asked specifically)
